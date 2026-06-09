@@ -189,9 +189,9 @@ function renderRows() {
     const tr = document.createElement("tr");
     if (i === selectedRow) tr.classList.add("sel");
     tr.innerHTML =
-      COLS.map(([k]) => `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"></td>`).join("") +
-      `<td class="col-del"><button data-split="${i}" title="소/중/대 분할">＋</button>` +
-      `<button data-del="${i}" title="삭제">×</button></td>`;
+      `<td class="col-del"><button data-del="${i}" title="삭제">×</button>` +
+      `<button data-split="${i}" title="소/중/대 분할">＋</button></td>` +
+      COLS.map(([k]) => `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"></td>`).join("");
     tb.appendChild(tr);
     tr.addEventListener("click", (e) => {
       if (e.target.tagName === "BUTTON") return;
@@ -199,8 +199,18 @@ function renderRows() {
       document.querySelectorAll("#rows tbody tr").forEach((t, j) => t.classList.toggle("sel", j === i));
     });
   });
-  tb.querySelectorAll("input").forEach((inp) =>
-    inp.oninput = () => { current.rows[inp.dataset.i][inp.dataset.k] = inp.value; });
+  tb.querySelectorAll("input").forEach((inp) => {
+    inp.oninput = () => { current.rows[inp.dataset.i][inp.dataset.k] = inp.value; };
+    // ↑/↓/Enter 로 같은 컬럼 위아래 이동 (가격을 보면서 아래로 쭉 입력)
+    inp.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+      e.preventDefault();
+      const i = +inp.dataset.i, k = inp.dataset.k;
+      const ni = e.key === "ArrowUp" ? i - 1 : i + 1;
+      const tgt = tb.querySelector(`input[data-i="${ni}"][data-k="${k}"]`);
+      if (tgt) { tgt.focus(); tgt.select(); }
+    });
+  });
   tb.querySelectorAll("[data-del]").forEach((b) =>
     b.onclick = () => { current.rows.splice(+b.dataset.del, 1); if (selectedRow >= current.rows.length) selectedRow = -1; renderRows(); });
   tb.querySelectorAll("[data-split]").forEach((b) =>

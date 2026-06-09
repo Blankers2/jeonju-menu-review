@@ -41,13 +41,13 @@ th { background: #f8fafc; font-size: 12px; }
 td input { width: 100%; border: none; padding: 4px; font-size: 13px; background: transparent; }
 td input:focus { outline: 2px solid #6366f1; }
 
-/* 메뉴명은 넓고 크게, 번역 컬럼은 좁게(값은 편집 가능, 보기만 축소) */
-#rows th:nth-child(1), #rows td:nth-child(1) { width: 42%; }
-#rows td:nth-child(1) input { font-size: 15px; font-weight: 600; }
-#rows th:nth-child(2), #rows td:nth-child(2) { width: 12%; }            /* 가격 */
-#rows th:nth-child(n+3):nth-child(-n+6),
-#rows td:nth-child(n+3):nth-child(-n+6) { width: 10%; color: #64748b; } /* 영/일/중간/중번 */
-#rows th:last-child, #rows td.col-del { width: 46px; }
+/* 컬럼 순서: 1=삭제/분할, 2=메뉴명(넓고 크게), 3=가격, 4~7=번역(좁게) */
+#rows th:nth-child(1), #rows td.col-del { width: 56px; text-align: center; }
+#rows th:nth-child(2), #rows td:nth-child(2) { width: 42%; }            /* 메뉴명 */
+#rows td:nth-child(2) input { font-size: 15px; font-weight: 600; }
+#rows th:nth-child(3), #rows td:nth-child(3) { width: 12%; }            /* 가격 */
+#rows th:nth-child(n+4):nth-child(-n+7),
+#rows td:nth-child(n+4):nth-child(-n+7) { width: 10%; color: #64748b; } /* 영/일/중간/중번 */
 tr.sel td { background: #fef9c3; }
 td.col-del { text-align: center; }
 .col-del button { cursor: pointer; border: none; background: #f1f5f9; margin: 1px; }
