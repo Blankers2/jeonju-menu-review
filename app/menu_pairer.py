@@ -26,28 +26,6 @@ def _median_height(boxes):
     return hs[len(hs) // 2] if hs else 20.0
 
 
-def cluster_columns(boxes):
-    """x중심 기준 1D 클러스터링. 갭이 평균폭의 2배 이상이면 새 컬럼.
-
-    NOTE: 이 함수는 전체 박스 집합에서 페이지 컬럼을 감지한다.
-    단순히 메뉴명-가격 사이의 수평 간격은 한 컬럼 내부 간격이므로,
-    진짜 페이지 분할 갭(여러 메뉴+가격 묶음 사이)만 컬럼 경계로 취급한다.
-    """
-    if not boxes:
-        return []
-    indexed = sorted(range(len(boxes)), key=lambda i: _center(boxes[i])[0])
-    avg_w = sum(b["bbox"][2] for b in boxes) / len(boxes)
-    gap = avg_w * 2.0
-    columns, cur = [], [indexed[0]]
-    for prev, idx in zip(indexed, indexed[1:]):
-        if _center(boxes[idx])[0] - _center(boxes[prev])[0] > gap:
-            columns.append(cur); cur = [idx]
-        else:
-            cur.append(idx)
-    columns.append(cur)
-    return columns
-
-
 def cluster_rows(col_indices, boxes):
     """컬럼 내 y중심 기준 행 그룹핑. 간격 임계 = 중앙 글자높이*0.7."""
     if not col_indices:
