@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menu Finder</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <strong>Menu Finder</strong>
+    <span id="progress">대기</span>
+    <button id="export-all">전체 CSV 내보내기</button>
+  </header>
+  <div id="drop" class="drop">여기로 이미지(또는 폴더)를 드래그앤드롭</div>
+  <main>
+    <aside id="sidebar"></aside>
+    <section id="viewer">
+      <div id="img-tabs"></div>
+      <div id="img-wrap"><img id="img" alt="" /><canvas id="overlay"></canvas></div>
+    </section>
+    <section id="editor">
+      <div class="store-head">
+        <label>가게명 <input id="title" type="text" /></label>
+        <label>PlaceID <input id="placeid" list="places" type="text" /></label>
+        <datalist id="places"></datalist>
+      </div>
+      <table id="rows"><thead><tr><th>메뉴명</th><th>가격</th><th></th></tr></thead>
+        <tbody></tbody></table>
+      <div class="actions">
+        <button id="add-row">+ 행 추가</button>
+        <button id="mark-done">이미지 검수완료</button>
+        <button id="save">저장</button>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
