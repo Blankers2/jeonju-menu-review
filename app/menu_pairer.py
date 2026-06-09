@@ -1,7 +1,8 @@
 import re
 
-_PRICE_TOKEN_RE = re.compile(r"\d{1,3}(?:,\d{3})+|\d{3,}")
-_HAS_LETTERS_RE = re.compile(r"[가-힣A-Za-z]{2,}")
+# Matches phone-like sequences: digit groups joined by hyphens or dots
+# e.g. 063-123-4567, 251-3535, 063.251.3535
+_PHONE_RE = re.compile(r"\d{2,4}[-.]\d{3,4}(?:[-.]\d{3,4})?")
 
 # Matches price tokens: comma-grouped numbers OR bare runs of 4+ digits
 _SPLIT_PRICE_RE = re.compile(r"\d{1,3}(?:,\d{3})+|\d{4,}")
@@ -13,17 +14,25 @@ def split_menu_price(text: str) -> tuple[str, list[str]]:
     """한 OCR 박스의 텍스트를 (메뉴명, 가격토큰 리스트)로 분리.
 
     - 가격 토큰: 콤마그룹 숫자 또는 4자리 이상 연속 숫자
+    - 전화번호 패턴(숫자-숫자-숫자)은 가격으로 인식하지 않음
     - 가격 토큰에 바로 붙은 앞 '₩' 또는 뒤 '원' 도 제거
     - 나머지 텍스트가 menu_part (공백 정규화, 불필요한 구분자 제거)
     - 작은 숫자(3자리 이하)는 메뉴명에 그대로 보존
     """
-    prices = _SPLIT_PRICE_RE.findall(text)
+    # Mask phone-like sequences before price extraction
+    masked = _PHONE_RE.sub(" ", text)
+
+    prices = _SPLIT_PRICE_RE.findall(masked)
 
     # Remove each price token and adjacent currency symbols from text
     menu_part = text
     for token in prices:
         # Remove ₩TOKEN원, ₩TOKEN, TOKEN원, TOKEN — in that order of specificity
         menu_part = re.sub(r"₩?" + re.escape(token) + r"원?", "", menu_part)
+
+    # Also remove masked phone-like sequences from menu_part
+    # (keep original phone text in menu_part — it is not a price token,
+    #  so the menu text naturally retains it; no further action needed)
 
     # Strip junk separators from ends and collapse internal whitespace
     menu_part = _JUNK_STRIP_RE.sub("", menu_part)
@@ -33,11 +42,8 @@ def split_menu_price(text: str) -> tuple[str, list[str]]:
 
 
 def extract_prices(text: str) -> list[str]:
-    """텍스트에서 가격 후보 토큰들을 추출. 메뉴명이면 빈 리스트."""
-    cleaned = text.replace("원", " ").replace("₩", " ")
-    if _HAS_LETTERS_RE.search(cleaned):
-        return []
-    return _PRICE_TOKEN_RE.findall(cleaned)
+    """텍스트에서 가격 후보 토큰들을 추출. split_menu_price에 위임."""
+    return split_menu_price(text)[1]
 
 
 def is_price(text: str) -> bool:

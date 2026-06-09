@@ -63,13 +63,9 @@ def get_store(store_key: str):
 
 @server.put("/api/stores/{store_key}")
 def update_store(store_key: str, payload: dict):
-    s = draft_store.load_store(store_key)
-    if not s:
+    s = draft_store.apply_store_update(store_key, payload)
+    if s is None:
         raise HTTPException(404, "store not found")
-    for k in ("place_id", "title_confirmed", "status", "images"):
-        if k in payload:
-            s[k] = payload[k]
-    draft_store.save_store(s)
     return s
 
 

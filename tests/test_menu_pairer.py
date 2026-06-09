@@ -90,3 +90,20 @@ def test_pair_boxes_handles_merged_menu_price_boxes():
     pairs = {(r["menu"], r["price"]) for r in rows}
     assert ("계란탕", "4,000") in pairs
     assert ("소주", "4,000") in pairs
+
+
+# ── phone number masking tests (Fix A) ─────────────────────────────────────
+
+def test_phone_number_not_treated_as_price():
+    menu, prices = split_menu_price("문의 063-123-4567")
+    assert prices == []
+    menu2, prices2 = split_menu_price("예약 063.251.3535")
+    assert prices2 == []
+
+def test_phone_then_real_price():
+    menu, prices = split_menu_price("장어탕 10,000원 (063-251-3535)")
+    assert prices == ["10,000"]
+
+def test_extract_prices_ignores_phone():
+    from app.menu_pairer import extract_prices
+    assert extract_prices("063-123-4567") == []

@@ -42,6 +42,7 @@ def list_stores() -> list[dict]:
 _job_q: "queue.Queue[tuple[str, Path]]" = queue.Queue()
 _progress = {"total": 0, "done": 0}
 _lock = threading.Lock()
+_store_io_lock = threading.RLock()
 _place_index = None
 _engine = None
 
@@ -85,16 +86,31 @@ def _ensure_store(store_key: str) -> dict:
 
 
 def _process(filename: str, path: Path) -> None:
+    # OCR is slow — run it OUTSIDE the lock to avoid blocking the API
     store_key = normalize_store_name(filename)
-    store = _ensure_store(store_key)
     boxes = _get_engine().read(path)
     w, h = image_size(path)
-    store["images"] = [im for im in store["images"] if im["filename"] != filename]
-    store["images"].append({
+    new_image = {
         "filename": filename, "width": w, "height": h,
         "boxes": boxes, "rows": pair_boxes(boxes), "reviewed": False,
-    })
-    save_store(store)
+    }
+    with _store_io_lock:
+        store = _ensure_store(store_key)
+        store["images"] = [im for im in store["images"] if im["filename"] != filename]
+        store["images"].append(new_image)
+        save_store(store)
+
+
+def apply_store_update(store_key: str, payload: dict) -> dict | None:
+    with _store_io_lock:
+        store = load_store(store_key)
+        if store is None:
+            return None
+        for k in ("place_id", "title_confirmed", "status", "images"):
+            if k in payload:
+                store[k] = payload[k]
+        save_store(store)
+        return store
 
 
 def _worker() -> None:

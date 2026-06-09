@@ -152,7 +152,10 @@ function renderRows() {
     });
 }
 
-function esc(s) { return (s ?? "").replace(/"/g, "&quot;"); }
+function esc(s) {
+  return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 // ---- 액션 ----
 $("#add-row").onclick = () => {
