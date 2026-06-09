@@ -1,131 +1,99 @@
+"""item_id별 조립 드래프트의 영속화 + 초안 생성."""
 import json
-import threading
-import queue
-from pathlib import Path
 
-from app.config import STORES_DIR, IMAGES_DIR
-from app.store_resolver import (
-    normalize_store_name, load_place_index, match_place, AUTO_CONFIRM_SCORE,
-)
-from app.menu_pairer import pair_boxes
-from app.ocr_engine import image_size
+from app.config import DRAFTS_DIR, PLACE_ITEM_LIST, TRANSLATIONS_DIR
+from app.classify import is_price, price_number
+from app import ingest
 
 
-def _safe(name: str) -> str:
-    return "".join(c if c.isalnum() or c in "._-가-힣" else "_" for c in name)
+def draft_path(item_id: str):
+    return DRAFTS_DIR / f"{item_id}.json"
 
 
-def store_path(store_key: str) -> Path:
-    return STORES_DIR / f"{_safe(store_key)}.json"
+def save_draft(draft: dict) -> None:
+    p = draft_path(str(draft["item_id"]))
+    p.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def save_store(store: dict) -> None:
-    p = store_path(store["store_key"])
-    p.write_text(json.dumps(store, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def load_store(store_key: str) -> dict | None:
-    p = store_path(store_key)
+def load_draft(item_id: str) -> dict | None:
+    p = draft_path(str(item_id))
     if not p.exists():
         return None
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def list_stores() -> list[dict]:
+def list_drafts() -> list[dict]:
     out = []
-    for p in sorted(STORES_DIR.glob("*.json")):
+    for p in sorted(DRAFTS_DIR.glob("*.json")):
         out.append(json.loads(p.read_text(encoding="utf-8")))
     return out
 
 
-# ---- OCR 큐 (백그라운드 단일 워커) ----
-_job_q: "queue.Queue[tuple[str, Path]]" = queue.Queue()
-_progress = {"total": 0, "done": 0}
-_lock = threading.Lock()
-_store_io_lock = threading.RLock()
-_place_index = None
-_engine = None
+def build_draft(item_id: str, image_meta: dict, fragments: list[dict]) -> dict:
+    """이미지 메타 + 번역조각 -> 초안 드래프트.
 
-
-def _get_engine():
-    global _engine
-    if _engine is None:
-        from app.ocr_engine import PaddleOcrEngine
-        _engine = PaddleOcrEngine()
-    return _engine
-
-
-def _get_index():
-    global _place_index
-    if _place_index is None:
-        _place_index = load_place_index()
-    return _place_index
-
-
-def enqueue_image(filename: str, path: Path) -> None:
-    with _lock:
-        _progress["total"] += 1
-    _job_q.put((filename, path))
-
-
-def progress() -> dict:
-    with _lock:
-        return dict(_progress)
-
-
-def _ensure_store(store_key: str) -> dict:
-    store = load_store(store_key)
-    if store:
-        return store
-    cands = match_place(store_key, _get_index())
-    place_id = cands[0]["place_id"] if cands and cands[0]["score"] >= AUTO_CONFIRM_SCORE else None
-    title = cands[0]["title"] if place_id else store_key
-    return {"store_key": store_key, "place_id": place_id,
-            "title_extracted": title, "title_confirmed": None,
-            "status": "pending", "candidates": cands, "images": []}
-
-
-def _process(filename: str, path: Path) -> None:
-    # OCR is slow — run it OUTSIDE the lock to avoid blocking the API
-    store_key = normalize_store_name(filename)
-    boxes = _get_engine().read(path)
-    w, h = image_size(path)
-    new_image = {
-        "filename": filename, "width": w, "height": h,
-        "boxes": boxes, "rows": pair_boxes(boxes), "reviewed": False,
+    - 가격형 조각 -> prices 팔레트 [{text, number}]
+    - 그 외 조각  -> 메뉴행(번역 상속) rows [{menu, price:"", en, ja, zh_cn, zh_tw, org_id}]
+    """
+    rows, prices = [], []
+    for fr in fragments or []:
+        ko = (fr.get("ko") or "").strip()
+        if ko == "":
+            continue
+        if is_price(ko):
+            prices.append({"text": ko, "number": price_number(ko)})
+        else:
+            rows.append({
+                "menu": ko, "price": "",
+                "en": fr.get("en", ""), "ja": fr.get("ja", ""),
+                "zh_cn": fr.get("zh_cn", ""), "zh_tw": fr.get("zh_tw", ""),
+                "org_id": fr.get("org_id", ""),
+            })
+    return {
+        "item_id": str(item_id),
+        "place_id": (image_meta or {}).get("place_id"),
+        "title": (image_meta or {}).get("title", ""),
+        "image_url": (image_meta or {}).get("image_url", ""),
+        "width": (image_meta or {}).get("width"),
+        "height": (image_meta or {}).get("height"),
+        "rows": rows,
+        "prices": prices,
+        "reviewed": False,
+        "status": "pending",
     }
-    with _store_io_lock:
-        store = _ensure_store(store_key)
-        store["images"] = [im for im in store["images"] if im["filename"] != filename]
-        store["images"].append(new_image)
-        save_store(store)
 
 
-def apply_store_update(store_key: str, payload: dict) -> dict | None:
-    with _store_io_lock:
-        store = load_store(store_key)
-        if store is None:
-            return None
-        for k in ("place_id", "title_confirmed", "status", "images"):
-            if k in payload:
-                store[k] = payload[k]
-        save_store(store)
-        return store
+def import_all() -> dict:
+    """엑셀 인제스트 후, 드래프트가 없는 item_id만 초안 생성(기존 편집 보존).
+
+    이미지 마스터에 있으나 번역조각이 없는 item_id도 빈 초안 생성(수동 입력용).
+    반환: {created, total}
+    """
+    images = ingest.load_images(PLACE_ITEM_LIST) if PLACE_ITEM_LIST.exists() else {}
+    fragments = ingest.load_fragments(TRANSLATIONS_DIR)
+    created = 0
+    for item_id, meta in images.items():
+        if load_draft(item_id) is not None:
+            continue
+        save_draft(build_draft(item_id, meta, fragments.get(item_id, [])))
+        created += 1
+    # 마스터엔 없지만 번역조각만 있는 item_id도 포용
+    for item_id, frs in fragments.items():
+        if item_id in images:
+            continue
+        if load_draft(item_id) is not None:
+            continue
+        save_draft(build_draft(item_id, {}, frs))
+        created += 1
+    return {"created": created, "total": len(list(DRAFTS_DIR.glob("*.json")))}
 
 
-def _worker() -> None:
-    while True:
-        filename, path = _job_q.get()
-        try:
-            _process(filename, path)
-        except Exception as e:
-            print(f"[OCR ERROR] {filename}: {e}")
-        finally:
-            with _lock:
-                _progress["done"] += 1
-            _job_q.task_done()
-
-
-def start_worker() -> None:
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
+def apply_update(item_id: str, payload: dict) -> dict | None:
+    draft = load_draft(item_id)
+    if draft is None:
+        return None
+    for k in ("rows", "title", "reviewed", "status", "place_id"):
+        if k in payload:
+            draft[k] = payload[k]
+    save_draft(draft)
+    return draft

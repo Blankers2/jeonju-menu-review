@@ -3,34 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Menu Finder</title>
+  <title>Menu Finder — 메뉴 조립</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header>
     <strong>Menu Finder</strong>
-    <span id="progress">대기</span>
-    <button id="export-all">전체 CSV 내보내기</button>
+    <button id="import">가져오기</button>
+    <span id="progress">—</span>
+    <button id="export-all">전체 .xlsx 내보내기</button>
   </header>
-  <div id="drop" class="drop">여기로 이미지(또는 폴더)를 드래그앤드롭</div>
   <main>
     <aside id="sidebar"></aside>
     <section id="viewer">
-      <div id="img-tabs"></div>
-      <div id="img-wrap"><img id="img" alt="" /><canvas id="overlay"></canvas></div>
+      <div class="img-toolbar">
+        <button id="zoom-out">−</button><button id="zoom-in">+</button>
+        <button id="zoom-reset">맞춤</button>
+        <a id="open-orig" href="#" target="_blank" rel="noopener">원본 새 탭</a>
+      </div>
+      <div id="img-wrap"><img id="img" alt="이미지를 선택하세요" /></div>
     </section>
     <section id="editor">
-      <div class="store-head">
+      <div class="head">
+        <span id="meta-info" class="meta"></span>
         <label>가게명 <input id="title" type="text" /></label>
-        <label>PlaceID <input id="placeid" list="places" type="text" /></label>
-        <datalist id="places"></datalist>
       </div>
-      <table id="rows"><thead><tr><th>메뉴명</th><th>가격</th><th></th></tr></thead>
-        <tbody></tbody></table>
+      <table id="rows">
+        <thead><tr>
+          <th>메뉴명</th><th>가격</th><th>영어</th><th>일본어</th>
+          <th>중국어<br>간체</th><th>중국어<br>번체</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
       <div class="actions">
         <button id="add-row">+ 행 추가</button>
-        <button id="mark-done">이미지 검수완료</button>
+        <button id="mark-done">검수완료 토글</button>
         <button id="save">저장</button>
+      </div>
+      <div class="prices">
+        <div class="prices-title">가격 조각 (행 선택 후 클릭하면 가격 채움)</div>
+        <div id="price-palette"></div>
       </div>
     </section>
   </main>
