@@ -22,7 +22,67 @@ async function loadSettings() {
   } catch (e) { /* ignore */ }
 }
 
-// ---- 가져오기 ----
+// ---- 폴더 드래그앤드롭 업로드 ----
+const drop = $("#drop");
+["dragover", "dragenter"].forEach((e) =>
+  drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("hot"); }));
+["dragleave", "dragend"].forEach((e) =>
+  drop.addEventListener(e, () => drop.classList.remove("hot")));
+drop.addEventListener("drop", async (ev) => {
+  ev.preventDefault(); drop.classList.remove("hot");
+  const files = await filesFromDrop(ev.dataTransfer);
+  uploadFiles(files);
+});
+drop.addEventListener("click", (ev) => {
+  if (ev.target.closest("details") || ev.target.tagName === "INPUT" || ev.target.tagName === "BUTTON") return;
+  $("#folder").click();
+});
+$("#folder").addEventListener("change", (ev) => {
+  const files = [...ev.target.files];
+  files.forEach((f) => { f._rel = f.webkitRelativePath || f.name; });
+  uploadFiles(files);
+});
+
+function readAllDirEntries(reader) {
+  return new Promise((resolve, reject) => {
+    const out = [];
+    const read = () => reader.readEntries((es) => { es.length ? (out.push(...es), read()) : resolve(out); }, reject);
+    read();
+  });
+}
+function fileFromEntry(entry) { return new Promise((res, rej) => entry.file(res, rej)); }
+async function collectEntry(entry, prefix, acc) {
+  if (entry.isFile) { const f = await fileFromEntry(entry); f._rel = prefix + entry.name; acc.push(f); }
+  else if (entry.isDirectory) {
+    const es = await readAllDirEntries(entry.createReader());
+    for (const e of es) await collectEntry(e, prefix + entry.name + "/", acc);
+  }
+}
+async function filesFromDrop(dt) {
+  const acc = [];
+  const entries = [...dt.items].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length) { for (const e of entries) await collectEntry(e, "", acc); }
+  else { [...dt.files].forEach((f) => { f._rel = f.name; acc.push(f); }); }
+  return acc;
+}
+
+async function uploadFiles(allFiles) {
+  const xlsx = allFiles.filter((f) => /\.xlsx$/i.test(f.name) && !f.name.startsWith("~$"));
+  if (!xlsx.length) { alert("폴더에서 .xlsx 파일을 찾지 못했습니다."); return; }
+  const fd = new FormData();
+  xlsx.forEach((f) => { fd.append("files", f); fd.append("paths", f._rel || f.webkitRelativePath || f.name); });
+  $("#progress").textContent = `업로드 중… (${xlsx.length}개 파일)`;
+  try {
+    const res = await api("/api/upload_translations", { method: "POST", body: fd });
+    await loadSidebar();
+    $("#progress").textContent =
+      `완료: 신규 ${res.created} / 갱신 ${res.refreshed} / 보존 ${res.kept} / 전체 ${res.total} (번역 ${res.fragment_items}건)`;
+  } catch (e) {
+    $("#progress").textContent = "업로드 실패: " + e.message;
+  }
+}
+
+// ---- (대안) 서버 경로에서 가져오기 ----
 $("#import").onclick = async () => {
   $("#import").disabled = true;
   $("#progress").textContent = "가져오는 중… (네트워크 폴더는 다소 걸릴 수 있음)";

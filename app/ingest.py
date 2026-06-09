@@ -1,4 +1,6 @@
 """엑셀 입력 파싱: 이미지 마스터(place_item_list)와 이미지별 번역본."""
+import io
+import re
 from pathlib import Path
 
 import openpyxl
@@ -6,6 +8,34 @@ import openpyxl
 
 def _norm(s) -> str:
     return str(s).strip() if s is not None else ""
+
+
+# 파일명 예: place_13764_image_111225_20260512_111947911.xlsx
+_FNAME_RE = re.compile(r"place[_-](\d+)[_-]image[_-](\d+)", re.IGNORECASE)
+# 폴더명 예: 13764_전주성갈비  (place_id + 가게명)
+_FOLDER_RE = re.compile(r"^(\d+)[ _\-]+(.+)$")
+
+
+def parse_path_meta(rel_path: str) -> dict:
+    """업로드 파일의 상대경로 -> {place_id, item_id, title}.
+
+    place_id/item_id는 파일명에서, title(가게명)은 상위폴더명(`<place_id>_<가게명>`)에서.
+    """
+    parts = str(rel_path).replace("\\", "/").split("/")
+    fname = parts[-1] if parts else ""
+    place_id = item_id = None
+    title = ""
+    m = _FNAME_RE.search(fname)
+    if m:
+        place_id = int(m.group(1))
+        item_id = m.group(2)
+    if len(parts) >= 2:
+        fm = _FOLDER_RE.match(parts[-2].strip())
+        if fm:
+            if place_id is None:
+                place_id = int(fm.group(1))
+            title = fm.group(2).strip()
+    return {"place_id": place_id, "item_id": item_id, "title": title}
 
 
 def load_images(path: Path) -> dict:
@@ -62,6 +92,8 @@ def _resolve_translation_columns(header: list[str]) -> dict:
             col["en"] = i
         elif h.startswith("30_") or "japanese" in hl or "日本語" in h:
             col["ja"] = i
+        elif h == "Image Url" or hl == "image_url":
+            col["image_url"] = i
     return col
 
 
@@ -116,3 +148,70 @@ def load_fragments(dir_or_file: Path) -> dict:
             _read_translation_sheet(ws, acc)
         wb.close()
     return acc
+
+
+def _iter_translation_rows(ws):
+    """워크시트 -> 행 dict 제너레이터 {item_id, org_id, ko, en, ja, zh_cn, zh_tw, image_url}."""
+    rows = ws.iter_rows(values_only=True)
+    try:
+        header = [_norm(h) for h in next(rows)]
+    except StopIteration:
+        return
+    col = _resolve_translation_columns(header)
+    if "ko" not in col:
+        return
+
+    def get(row, key):
+        i = col.get(key)
+        return row[i] if i is not None and i < len(row) else None
+
+    for row in rows:
+        ko = _norm(get(row, "ko"))
+        if ko == "":
+            continue
+        raw_item = get(row, "item_id")
+        item_id = ""
+        if raw_item is not None and _norm(raw_item) != "":
+            item_id = str(int(raw_item)) if isinstance(raw_item, float) else str(raw_item).strip()
+        yield {
+            "item_id": item_id, "org_id": _norm(get(row, "org_id")), "ko": ko,
+            "en": _norm(get(row, "en")), "ja": _norm(get(row, "ja")),
+            "zh_cn": _norm(get(row, "zh_cn")), "zh_tw": _norm(get(row, "zh_tw")),
+            "image_url": _norm(get(row, "image_url")),
+        }
+
+
+def load_uploaded(files: list[tuple[str, bytes]]):
+    """업로드된 (상대경로, 바이트) 목록 -> (fragments_by_item, meta_by_item).
+
+    item_id는 파일의 Item Id 컬럼 우선, 없으면 파일명에서. place_id/title은 경로에서.
+    image_url은 행의 Image Url 컬럼에서 캡처.
+    """
+    frags: dict = {}
+    meta: dict = {}
+    for rel_path, data in files:
+        pm = parse_path_meta(rel_path)
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        except Exception:
+            continue
+        for ws in wb.worksheets:
+            for row in _iter_translation_rows(ws):
+                iid = row["item_id"] or pm["item_id"]
+                if not iid:
+                    continue
+                iid = str(iid)
+                frags.setdefault(iid, []).append({
+                    "org_id": row["org_id"], "ko": row["ko"], "en": row["en"],
+                    "ja": row["ja"], "zh_cn": row["zh_cn"], "zh_tw": row["zh_tw"],
+                })
+                m = meta.setdefault(iid, {"place_id": pm["place_id"], "title": pm["title"],
+                                          "image_url": "", "width": None, "height": None})
+                if m["place_id"] is None and pm["place_id"] is not None:
+                    m["place_id"] = pm["place_id"]
+                if not m["title"] and pm["title"]:
+                    m["title"] = pm["title"]
+                if not m["image_url"] and row["image_url"]:
+                    m["image_url"] = row["image_url"]
+        wb.close()
+    return frags, meta

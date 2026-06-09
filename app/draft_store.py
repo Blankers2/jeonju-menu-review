@@ -140,6 +140,21 @@ def import_all(translations_dir: str | None = None) -> dict:
     return counts
 
 
+def import_uploaded(files: list) -> dict:
+    """업로드된 번역본 파일들(상대경로, 바이트)로 초안 생성/갱신.
+
+    place_id·item_id·가게명을 파일명/폴더명에서 직접 추출(마스터 조인 불필요).
+    반환: {created, refreshed, kept, total, fragment_items}
+    """
+    frags, meta = ingest.load_uploaded(files)
+    counts = {"created": 0, "refreshed": 0, "kept": 0}
+    for item_id, frs in frags.items():
+        counts[_upsert(item_id, meta.get(item_id, {}), frs)] += 1
+    counts["total"] = len(list(DRAFTS_DIR.glob("*.json")))
+    counts["fragment_items"] = len(frags)
+    return counts
+
+
 def apply_update(item_id: str, payload: dict) -> dict | None:
     draft = load_draft(item_id)
     if draft is None:

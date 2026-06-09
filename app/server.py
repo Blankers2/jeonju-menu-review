@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -29,6 +29,21 @@ def do_import(payload: dict | None = None):
         return draft_store.import_all(translations_dir)
     except FileNotFoundError as e:
         raise HTTPException(400, str(e))
+
+
+@server.post("/api/upload_translations")
+async def upload_translations(files: list[UploadFile] = File(...),
+                              paths: list[str] = Form(default=[])):
+    """번역본 파일들을 드래그앤드롭 업로드 -> 초안 생성/갱신.
+
+    paths: 각 파일의 상대경로(폴더 포함). files와 같은 순서. place_id/item_id/가게명을
+    파일명·폴더명에서 추출하므로 마스터 조인 없이 동작.
+    """
+    pairs = []
+    for i, f in enumerate(files):
+        rel = paths[i] if i < len(paths) else f.filename
+        pairs.append((rel or f.filename, await f.read()))
+    return draft_store.import_uploaded(pairs)
 
 
 @server.get("/api/images")

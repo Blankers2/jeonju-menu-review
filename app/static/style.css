@@ -5,9 +5,16 @@ header strong { font-size: 15px; }
 header #export-all { margin-left: auto; }
 header button { padding: 4px 10px; cursor: pointer; }
 #progress { color: #cbd5e1; }
-#trans-path { flex: 1; max-width: 520px; padding: 4px 8px; border: 1px solid #475569; border-radius: 4px; background: #0f172a; color: #e2e8f0; }
 
-main { display: grid; grid-template-columns: 240px 1fr 620px; gap: 8px; padding: 8px 12px 16px; height: calc(100vh - 50px); }
+.drop { margin: 8px 12px; padding: 12px; border: 2px dashed #94a3b8; border-radius: 8px; text-align: center; color: #475569; cursor: pointer; background: #f8fafc; }
+.drop.hot { background: #eef2ff; border-color: #6366f1; }
+.drop-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.drop code { background: #e2e8f0; padding: 0 4px; border-radius: 3px; }
+.path-alt { margin-top: 8px; font-size: 12px; color: #64748b; }
+.path-alt summary { cursor: pointer; }
+.path-alt #trans-path { width: 60%; max-width: 520px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; margin: 6px 6px 0; }
+
+main { display: grid; grid-template-columns: 240px 1fr 620px; gap: 8px; padding: 4px 12px 16px; height: calc(100vh - 150px); }
 
 #sidebar { overflow: auto; border-right: 1px solid #e5e7eb; }
 .place-group { font-weight: 600; background: #f1f5f9; padding: 6px 8px; position: sticky; top: 0; }
