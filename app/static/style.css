@@ -5,6 +5,7 @@ header strong { font-size: 15px; }
 header #export-all { margin-left: auto; }
 header button { padding: 4px 10px; cursor: pointer; }
 #progress { color: #cbd5e1; }
+#trans-path { flex: 1; max-width: 520px; padding: 4px 8px; border: 1px solid #475569; border-radius: 4px; background: #0f172a; color: #e2e8f0; }
 
 main { display: grid; grid-template-columns: 240px 1fr 620px; gap: 8px; padding: 8px 12px 16px; height: calc(100vh - 50px); }
 

@@ -9,10 +9,26 @@ from app.xlsx_exporter import write_workbook
 server = FastAPI(title="Menu Finder")
 
 
+@server.get("/api/settings")
+def get_settings():
+    """저장된 경로 등 설정. translations_dir는 기본값으로 폴백."""
+    s = draft_store.load_settings()
+    s["translations_dir"] = draft_store.get_translations_dir()
+    return s
+
+
 @server.post("/api/import")
-def do_import():
-    """엑셀(이미지 마스터 + 번역폴더)을 인제스트해 초안 생성."""
-    return draft_store.import_all()
+def do_import(payload: dict | None = None):
+    """엑셀(이미지 마스터 + 번역폴더)을 인제스트해 초안 생성/갱신.
+
+    body(JSON, 선택): {"translations_dir": "<폴더 또는 합본파일 경로>"}.
+    경로를 주면 설정에 저장돼 다음에 재사용됨.
+    """
+    translations_dir = (payload or {}).get("translations_dir") if payload else None
+    try:
+        return draft_store.import_all(translations_dir)
+    except FileNotFoundError as e:
+        raise HTTPException(400, str(e))
 
 
 @server.get("/api/images")

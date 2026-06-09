@@ -14,14 +14,29 @@ function esc(s) {
                   .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ---- 설정(번역 폴더 경로) ----
+async function loadSettings() {
+  try {
+    const s = await api("/api/settings");
+    if (s.translations_dir) $("#trans-path").value = s.translations_dir;
+  } catch (e) { /* ignore */ }
+}
+
 // ---- 가져오기 ----
 $("#import").onclick = async () => {
   $("#import").disabled = true;
-  $("#progress").textContent = "가져오는 중…";
+  $("#progress").textContent = "가져오는 중… (네트워크 폴더는 다소 걸릴 수 있음)";
   try {
-    const res = await api("/api/import", { method: "POST" });
+    const translations_dir = $("#trans-path").value.trim();
+    const res = await api("/api/import", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ translations_dir }),
+    });
     await loadSidebar();
-    $("#progress").textContent = `가져옴: 신규 ${res.created} / 전체 ${res.total}`;
+    $("#progress").textContent =
+      `가져옴: 신규 ${res.created} / 갱신 ${res.refreshed} / 보존 ${res.kept} / 전체 ${res.total} (번역 ${res.fragment_items}건)`;
+  } catch (e) {
+    $("#progress").textContent = "가져오기 실패: " + e.message;
   } finally { $("#import").disabled = false; }
 };
 
@@ -159,4 +174,5 @@ async function save() {
 $("#export-all").onclick = () => { window.location = "/api/export"; };
 
 // init
+loadSettings();
 loadSidebar();

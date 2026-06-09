@@ -106,7 +106,8 @@ def load_fragments(dir_or_file: Path) -> dict:
     p = Path(dir_or_file)
     files = []
     if p.is_dir():
-        files = sorted(f for f in p.glob("*.xlsx") if not f.name.startswith("~$"))
+        # 하위폴더(place별 폴더)까지 재귀 스캔. 엑셀 임시 잠금파일(~$) 제외.
+        files = sorted(f for f in p.rglob("*.xlsx") if not f.name.startswith("~$"))
     elif p.is_file():
         files = [p]
     for f in files:

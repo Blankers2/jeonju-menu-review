@@ -1,9 +1,28 @@
 """item_id별 조립 드래프트의 영속화 + 초안 생성."""
 import json
+from pathlib import Path
 
-from app.config import DRAFTS_DIR, PLACE_ITEM_LIST, TRANSLATIONS_DIR
+from app.config import DRAFTS_DIR, PLACE_ITEM_LIST, TRANSLATIONS_DIR, SETTINGS_FILE
 from app.classify import is_price, price_number
 from app import ingest
+
+
+def load_settings() -> dict:
+    if SETTINGS_FILE.exists():
+        try:
+            return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def save_settings(settings: dict) -> None:
+    SETTINGS_FILE.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def get_translations_dir() -> str:
+    """저장된 번역 폴더 경로 또는 기본값(data/translations)."""
+    return load_settings().get("translations_dir") or str(TRANSLATIONS_DIR)
 
 
 def draft_path(item_id: str):
@@ -83,17 +102,28 @@ def _upsert(item_id: str, meta: dict, frs: list[dict]) -> str:
     return "refreshed"
 
 
-def import_all() -> dict:
+def import_all(translations_dir: str | None = None) -> dict:
     """엑셀 인제스트 후 초안 생성/갱신.
+
+    translations_dir: 번역본 폴더(하위폴더 재귀 스캔) 또는 합본 파일 경로.
+      None이면 저장된 설정값, 그것도 없으면 기본 data/translations.
+      유효한 경로면 설정에 저장(다음에 재사용).
 
     - 신규 item_id: 초안 생성.
     - 미편집 초안: 최신 번역조각으로 갱신(번역 파일을 나중에 추가해도 반영됨).
     - 사용자가 편집/검수한 초안: 그대로 보존.
     이미지 마스터에 있으나 조각이 없는 item_id도 빈 초안 생성(수동 입력용).
-    반환: {created, refreshed, kept, total}
+    반환: {created, refreshed, kept, total, fragment_items, source}
     """
+    src = (translations_dir or "").strip() or get_translations_dir()
+    src_path = Path(src)
+    if not src_path.exists():
+        raise FileNotFoundError(f"번역 경로를 찾을 수 없습니다: {src}")
+    if translations_dir and translations_dir.strip():
+        s = load_settings(); s["translations_dir"] = str(src_path); save_settings(s)
+
     images = ingest.load_images(PLACE_ITEM_LIST) if PLACE_ITEM_LIST.exists() else {}
-    fragments = ingest.load_fragments(TRANSLATIONS_DIR)
+    fragments = ingest.load_fragments(src_path)
     counts = {"created": 0, "refreshed": 0, "kept": 0}
     seen = set()
     for item_id, meta in images.items():
@@ -105,6 +135,8 @@ def import_all() -> dict:
             continue
         counts[_upsert(item_id, {}, frs)] += 1
     counts["total"] = len(list(DRAFTS_DIR.glob("*.json")))
+    counts["fragment_items"] = len(fragments)
+    counts["source"] = str(src_path)
     return counts
 
 
