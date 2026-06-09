@@ -157,15 +157,25 @@ async function openItem(itemId) {
   loadSidebar();
 }
 
+let naturalW = 0, naturalH = 0;
 function renderImage() {
   const img = $("#img");
+  naturalW = naturalH = 0;
+  img.style.transform = "";
+  img.onload = () => { naturalW = img.naturalWidth; naturalH = img.naturalHeight; fitImage(); };
   img.src = current.image_url || "";
+}
+function applyZoom() { if (naturalW) $("#img").style.width = Math.round(naturalW * zoom) + "px"; }
+function fitImage() {
+  const wrap = $("#img-wrap");
+  if (!naturalW || !naturalH) return;
+  zoom = Math.min(wrap.clientWidth / naturalW, wrap.clientHeight / naturalH) || 1;
   applyZoom();
 }
-function applyZoom() { $("#img").style.transform = `scale(${zoom})`; }
 $("#zoom-in").onclick = () => { zoom = Math.min(zoom * 1.25, 8); applyZoom(); };
-$("#zoom-out").onclick = () => { zoom = Math.max(zoom / 1.25, 0.1); applyZoom(); };
-$("#zoom-reset").onclick = () => { zoom = 1; applyZoom(); };
+$("#zoom-out").onclick = () => { zoom = Math.max(zoom / 1.25, 0.05); applyZoom(); };
+$("#zoom-reset").onclick = () => { fitImage(); };  // "맞춤" = 영역에 맞게
+window.addEventListener("resize", () => { if (naturalW) fitImage(); });
 
 // ---- 조립 표 ----
 const COLS = [
