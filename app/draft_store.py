@@ -63,29 +63,49 @@ def build_draft(item_id: str, image_meta: dict, fragments: list[dict]) -> dict:
     }
 
 
-def import_all() -> dict:
-    """엑셀 인제스트 후, 드래프트가 없는 item_id만 초안 생성(기존 편집 보존).
+def _upsert(item_id: str, meta: dict, frs: list[dict]) -> str:
+    """초안 생성/갱신. 사용자가 편집한 드래프트(edited)는 보존, 손 안 댄 것은 최신 조각으로 갱신.
 
-    이미지 마스터에 있으나 번역조각이 없는 item_id도 빈 초안 생성(수동 입력용).
-    반환: {created, total}
+    반환: "created" | "refreshed" | "kept"
+    """
+    existing = load_draft(item_id)
+    if existing is None:
+        save_draft(build_draft(item_id, meta, frs))
+        return "created"
+    if existing.get("edited"):
+        return "kept"
+    # 미편집 초안: 최신 번역조각/메타로 재생성(나중에 번역 파일을 추가한 경우 반영)
+    save_draft(build_draft(item_id, meta or {
+        "place_id": existing.get("place_id"), "title": existing.get("title"),
+        "image_url": existing.get("image_url"), "width": existing.get("width"),
+        "height": existing.get("height"),
+    }, frs))
+    return "refreshed"
+
+
+def import_all() -> dict:
+    """엑셀 인제스트 후 초안 생성/갱신.
+
+    - 신규 item_id: 초안 생성.
+    - 미편집 초안: 최신 번역조각으로 갱신(번역 파일을 나중에 추가해도 반영됨).
+    - 사용자가 편집/검수한 초안: 그대로 보존.
+    이미지 마스터에 있으나 조각이 없는 item_id도 빈 초안 생성(수동 입력용).
+    반환: {created, refreshed, kept, total}
     """
     images = ingest.load_images(PLACE_ITEM_LIST) if PLACE_ITEM_LIST.exists() else {}
     fragments = ingest.load_fragments(TRANSLATIONS_DIR)
-    created = 0
+    counts = {"created": 0, "refreshed": 0, "kept": 0}
+    seen = set()
     for item_id, meta in images.items():
-        if load_draft(item_id) is not None:
-            continue
-        save_draft(build_draft(item_id, meta, fragments.get(item_id, [])))
-        created += 1
+        counts[_upsert(item_id, meta, fragments.get(item_id, []))] += 1
+        seen.add(item_id)
     # 마스터엔 없지만 번역조각만 있는 item_id도 포용
     for item_id, frs in fragments.items():
-        if item_id in images:
+        if item_id in seen:
             continue
-        if load_draft(item_id) is not None:
-            continue
-        save_draft(build_draft(item_id, {}, frs))
-        created += 1
-    return {"created": created, "total": len(list(DRAFTS_DIR.glob("*.json")))}
+        counts[_upsert(item_id, {}, frs)] += 1
+    counts["total"] = len(list(DRAFTS_DIR.glob("*.json")))
+    return counts
 
 
 def apply_update(item_id: str, payload: dict) -> dict | None:
@@ -95,5 +115,6 @@ def apply_update(item_id: str, payload: dict) -> dict | None:
     for k in ("rows", "title", "reviewed", "status", "place_id"):
         if k in payload:
             draft[k] = payload[k]
+    draft["edited"] = True  # 사용자 편집 표시 → 이후 재가져오기에서 보존
     save_draft(draft)
     return draft

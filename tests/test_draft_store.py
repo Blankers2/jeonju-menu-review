@@ -37,3 +37,29 @@ def test_save_load_and_update(tmp_path, monkeypatch):
     assert upd["reviewed"] is True
     assert upd["rows"][0]["price"] == "7,000"
     assert draft_store.apply_update("missing", {"reviewed": True}) is None
+
+
+def test_import_refreshes_unedited_preserves_edited(tmp_path, monkeypatch):
+    monkeypatch.setattr(draft_store, "DRAFTS_DIR", tmp_path)
+    pil = tmp_path / "pil.xlsx"; pil.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(draft_store, "PLACE_ITEM_LIST", pil)
+    images = {"100": META, "200": META}
+    monkeypatch.setattr(draft_store.ingest, "load_images", lambda p: images)
+    monkeypatch.setattr(draft_store.ingest, "load_fragments", lambda p: {})
+
+    r1 = draft_store.import_all()
+    assert r1["created"] == 2
+    assert draft_store.load_draft("100")["rows"] == []
+
+    # 사용자가 item 100을 편집
+    draft_store.apply_update("100", {"reviewed": True})
+
+    # 나중에 두 이미지의 번역 파일이 도착
+    monkeypatch.setattr(draft_store.ingest, "load_fragments", lambda p: {"100": FRAGS, "200": FRAGS})
+    r2 = draft_store.import_all()
+
+    # 100: 편집됨 -> 보존(빈 행 유지), 200: 미편집 -> 갱신(메뉴 2행)
+    assert draft_store.load_draft("100")["reviewed"] is True
+    assert len(draft_store.load_draft("100")["rows"]) == 0
+    assert len(draft_store.load_draft("200")["rows"]) == 2
+    assert r2["kept"] >= 1 and r2["refreshed"] >= 1
