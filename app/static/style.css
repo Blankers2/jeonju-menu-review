@@ -14,7 +14,7 @@ header button { padding: 4px 10px; cursor: pointer; }
 .path-alt summary { cursor: pointer; }
 .path-alt #trans-path { width: 60%; max-width: 520px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; margin: 6px 6px 0; }
 
-main { display: grid; grid-template-columns: 240px 1fr 620px; gap: 8px; padding: 4px 12px 16px; height: calc(100vh - 150px); }
+main { display: grid; grid-template-columns: 220px 1fr 720px; gap: 8px; padding: 4px 12px 16px; height: calc(100vh - 150px); }
 
 #sidebar { overflow: auto; border-right: 1px solid #e5e7eb; }
 .place-group { font-weight: 600; background: #f1f5f9; padding: 6px 8px; position: sticky; top: 0; }
@@ -35,11 +35,19 @@ main { display: grid; grid-template-columns: 240px 1fr 620px; gap: 8px; padding:
 .head .meta { color: #475569; }
 .head input { padding: 4px; min-width: 180px; }
 
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #e5e7eb; padding: 1px; vertical-align: middle; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #e5e7eb; padding: 1px; vertical-align: middle; overflow: hidden; }
 th { background: #f8fafc; font-size: 12px; }
 td input { width: 100%; border: none; padding: 4px; font-size: 13px; background: transparent; }
 td input:focus { outline: 2px solid #6366f1; }
+
+/* 메뉴명은 넓고 크게, 번역 컬럼은 좁게(값은 편집 가능, 보기만 축소) */
+#rows th:nth-child(1), #rows td:nth-child(1) { width: 42%; }
+#rows td:nth-child(1) input { font-size: 15px; font-weight: 600; }
+#rows th:nth-child(2), #rows td:nth-child(2) { width: 12%; }            /* 가격 */
+#rows th:nth-child(n+3):nth-child(-n+6),
+#rows td:nth-child(n+3):nth-child(-n+6) { width: 10%; color: #64748b; } /* 영/일/중간/중번 */
+#rows th:last-child, #rows td.col-del { width: 46px; }
 tr.sel td { background: #fef9c3; }
 td.col-del { text-align: center; }
 .col-del button { cursor: pointer; border: none; background: #f1f5f9; margin: 1px; }
