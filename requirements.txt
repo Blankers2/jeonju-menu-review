@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+rapidfuzz>=3.6
+paddleocr>=2.7
+paddlepaddle>=2.6
+pytest>=8.0
+pillow>=10.0
