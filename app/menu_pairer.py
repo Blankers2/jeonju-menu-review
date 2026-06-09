@@ -3,6 +3,34 @@ import re
 _PRICE_TOKEN_RE = re.compile(r"\d{1,3}(?:,\d{3})+|\d{3,}")
 _HAS_LETTERS_RE = re.compile(r"[가-힣A-Za-z]{2,}")
 
+# Matches price tokens: comma-grouped numbers OR bare runs of 4+ digits
+_SPLIT_PRICE_RE = re.compile(r"\d{1,3}(?:,\d{3})+|\d{4,}")
+# Characters to strip from menu_part ends after price removal
+_JUNK_STRIP_RE = re.compile(r"^[\s·.\-/원]+|[\s·.\-/원]+$")
+
+
+def split_menu_price(text: str) -> tuple[str, list[str]]:
+    """한 OCR 박스의 텍스트를 (메뉴명, 가격토큰 리스트)로 분리.
+
+    - 가격 토큰: 콤마그룹 숫자 또는 4자리 이상 연속 숫자
+    - 가격 토큰에 바로 붙은 앞 '₩' 또는 뒤 '원' 도 제거
+    - 나머지 텍스트가 menu_part (공백 정규화, 불필요한 구분자 제거)
+    - 작은 숫자(3자리 이하)는 메뉴명에 그대로 보존
+    """
+    prices = _SPLIT_PRICE_RE.findall(text)
+
+    # Remove each price token and adjacent currency symbols from text
+    menu_part = text
+    for token in prices:
+        # Remove ₩TOKEN원, ₩TOKEN, TOKEN원, TOKEN — in that order of specificity
+        menu_part = re.sub(r"₩?" + re.escape(token) + r"원?", "", menu_part)
+
+    # Strip junk separators from ends and collapse internal whitespace
+    menu_part = _JUNK_STRIP_RE.sub("", menu_part)
+    menu_part = re.sub(r"\s{2,}", " ", menu_part).strip()
+
+    return (menu_part, prices)
+
 
 def extract_prices(text: str) -> list[str]:
     """텍스트에서 가격 후보 토큰들을 추출. 메뉴명이면 빈 리스트."""
@@ -45,9 +73,10 @@ def cluster_rows(col_indices, boxes):
 def _pair_row_by_content(row_indices, boxes):
     """행 내 박스들을 내용(메뉴/가격)으로 페어링.
 
-    좌→우 순서로 순회하면서, 메뉴 박스가 나오면 새 그룹 시작.
-    이후 가격 박스들은 직전 메뉴에 귀속.
-    가격 다음 메뉴가 나오면(두 번째 페이지 컬럼) 새 그룹 시작.
+    좌→우 순서로 순회하면서, split_menu_price 로 각 박스를 분해.
+    - menu_part 가 있고 이미 가격이 수집된 상태면 → 새 그룹 시작
+    - menu_part 를 현재 그룹 메뉴에 추가, prices 를 현재 그룹 가격에 추가
+    - 병합 박스(menu+price 동시)도 자연스럽게 처리됨
     """
     ordered = sorted(row_indices, key=lambda i: _center(boxes[i])[0])
     groups = []  # list of (menu_parts, prices, src_indices)
@@ -55,18 +84,19 @@ def _pair_row_by_content(row_indices, boxes):
 
     for i in ordered:
         text = boxes[i]["text"].strip()
-        found = extract_prices(text)
-        if found:
-            # 가격 박스: 현재 그룹에 추가
-            cur_prices.extend(found)
-            cur_src.append(i)
-        elif text:
-            # 메뉴 박스: 이미 가격이 수집된 상태라면 새 그룹 시작
-            if cur_prices:
-                groups.append((list(cur_menu), list(cur_prices), list(cur_src)))
-                cur_menu, cur_prices, cur_src = [], [], []
-            cur_menu.append(text)
-            cur_src.append(i)
+        if not text:
+            continue
+        menu_part, prices = split_menu_price(text)
+
+        if menu_part and cur_prices:
+            # 새 메뉴가 나왔고 이미 가격이 수집됨 → 이전 그룹 마감
+            groups.append((list(cur_menu), list(cur_prices), list(cur_src)))
+            cur_menu, cur_prices, cur_src = [], [], []
+
+        if menu_part:
+            cur_menu.append(menu_part)
+        cur_prices.extend(prices)
+        cur_src.append(i)
 
     # 마지막 그룹 저장
     if cur_menu or cur_prices:
