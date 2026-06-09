@@ -31,19 +31,56 @@ def do_import(payload: dict | None = None):
         raise HTTPException(400, str(e))
 
 
+def _expand_uploads(uploads):
+    """(rel_path, bytes) 목록을 펼침. .zip은 내부 .xlsx로 전개, .gsheet는 건너뜀.
+
+    반환: (xlsx_pairs, skipped_gsheet)
+    """
+    import io
+    import zipfile
+
+    out = []
+    skipped = 0
+    for rel, data in uploads:
+        low = rel.lower()
+        base = rel.replace("\\", "/").split("/")[-1]
+        if low.endswith(".zip"):
+            try:
+                z = zipfile.ZipFile(io.BytesIO(data))
+            except Exception:
+                continue
+            for name in z.namelist():
+                nl = name.lower()
+                member = name.split("/")[-1]
+                if nl.endswith("/") or member.startswith("~$"):
+                    continue
+                if nl.endswith(".xlsx"):
+                    out.append((name, z.read(name)))
+                elif nl.endswith(".gsheet"):
+                    skipped += 1
+        elif low.endswith(".xlsx") and not base.startswith("~$"):
+            out.append((rel, data))
+        elif low.endswith(".gsheet"):
+            skipped += 1
+    return out, skipped
+
+
 @server.post("/api/upload_translations")
 async def upload_translations(files: list[UploadFile] = File(...),
                               paths: list[str] = Form(default=[])):
-    """번역본 파일들을 드래그앤드롭 업로드 -> 초안 생성/갱신.
+    """번역본 파일/폴더(또는 Drive 다운로드 .zip)를 업로드 -> 초안 생성/갱신.
 
-    paths: 각 파일의 상대경로(폴더 포함). files와 같은 순서. place_id/item_id/가게명을
-    파일명·폴더명에서 추출하므로 마스터 조인 없이 동작.
+    paths: 각 파일의 상대경로(폴더 포함, files와 같은 순서). place_id/item_id/가게명을
+    파일명·폴더명에서 추출하므로 마스터 조인 없이 동작. .gsheet(구글시트 포인터)는 건너뜀.
     """
-    pairs = []
+    uploads = []
     for i, f in enumerate(files):
-        rel = paths[i] if i < len(paths) else f.filename
-        pairs.append((rel or f.filename, await f.read()))
-    return draft_store.import_uploaded(pairs)
+        rel = (paths[i] if i < len(paths) else f.filename) or f.filename
+        uploads.append((rel, await f.read()))
+    pairs, skipped = _expand_uploads(uploads)
+    result = draft_store.import_uploaded(pairs)
+    result["skipped_gsheet"] = skipped
+    return result
 
 
 @server.get("/api/images")

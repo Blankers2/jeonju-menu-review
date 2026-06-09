@@ -67,16 +67,27 @@ async function filesFromDrop(dt) {
 }
 
 async function uploadFiles(allFiles) {
-  const xlsx = allFiles.filter((f) => /\.xlsx$/i.test(f.name) && !f.name.startsWith("~$"));
-  if (!xlsx.length) { alert("폴더에서 .xlsx 파일을 찾지 못했습니다."); return; }
+  const useful = allFiles.filter((f) => /\.(xlsx|zip)$/i.test(f.name) && !f.name.startsWith("~$"));
+  const gsheets = allFiles.filter((f) => /\.gsheet$/i.test(f.name)).length;
+  if (!useful.length) {
+    if (gsheets) {
+      alert(`구글시트(.gsheet) ${gsheets}개만 있어 읽을 수 없습니다.\n\n` +
+            `Google Drive에서 해당 폴더를 "다운로드"하면 .xlsx로 변환된 .zip을 받습니다.\n` +
+            `그 .zip(또는 .xlsx 파일들)을 드롭하세요.`);
+    } else {
+      alert(".xlsx 또는 .zip 파일을 찾지 못했습니다.");
+    }
+    return;
+  }
   const fd = new FormData();
-  xlsx.forEach((f) => { fd.append("files", f); fd.append("paths", f._rel || f.webkitRelativePath || f.name); });
-  $("#progress").textContent = `업로드 중… (${xlsx.length}개 파일)`;
+  useful.forEach((f) => { fd.append("files", f); fd.append("paths", f._rel || f.webkitRelativePath || f.name); });
+  $("#progress").textContent = `업로드 중… (${useful.length}개 파일)`;
   try {
     const res = await api("/api/upload_translations", { method: "POST", body: fd });
     await loadSidebar();
-    $("#progress").textContent =
-      `완료: 신규 ${res.created} / 갱신 ${res.refreshed} / 보존 ${res.kept} / 전체 ${res.total} (번역 ${res.fragment_items}건)`;
+    let msg = `완료: 신규 ${res.created} / 갱신 ${res.refreshed} / 보존 ${res.kept} / 전체 ${res.total} (번역 ${res.fragment_items}건)`;
+    if (res.skipped_gsheet) msg += ` · ⚠ 구글시트 ${res.skipped_gsheet}개 건너뜀(xlsx로 받아야 함)`;
+    $("#progress").textContent = msg;
   } catch (e) {
     $("#progress").textContent = "업로드 실패: " + e.message;
   }
