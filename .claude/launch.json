@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "menu-finder",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.server:server", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

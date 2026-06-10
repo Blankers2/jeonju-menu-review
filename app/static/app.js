@@ -122,13 +122,14 @@ async function loadSidebar() {
       lastPlace = im.place_id;
       const g = document.createElement("div");
       g.className = "place-group";
-      g.textContent = `${im.title || "(이름없음)"} · ${im.place_id ?? "-"}`;
+      g.innerHTML = `${esc(im.title) || "(이름없음)"} <span class="pid">#${im.place_id ?? "-"}</span>`;
       el.appendChild(g);
     }
     const d = document.createElement("div");
     d.className = "img-item" + (im.reviewed ? " done" : "")
       + (current && current.item_id === im.item_id ? " active" : "");
-    d.innerHTML = `${im.reviewed ? "✓ " : ""}item ${im.item_id} <span class="badge">(${im.rows}행)</span>`;
+    d.innerHTML = `${im.reviewed ? "✓ " : ""}<span class="mono">${im.item_id}</span>`
+      + ` <span class="badge">${im.rows}행</span>`;
     d.onclick = () => openItem(im.item_id);
     el.appendChild(d);
   }
