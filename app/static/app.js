@@ -146,6 +146,7 @@ async function openItem(itemId) {
   current = await api(`/api/images/${encodeURIComponent(itemId)}`);
   selectedRow = -1;
   zoom = 1;
+  $("#tr-edit").checked = false;  // 아이템 열 때마다 번역 수정 OFF로 리셋
   $("#title").value = current.title || "";
   $("#meta-info").textContent =
     `place ${current.place_id ?? "-"} · item ${current.item_id} · ${current.width ?? "?"}×${current.height ?? "?"}`;
@@ -183,8 +184,10 @@ const COLS = [
   ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
   ["ja", "일본어"], ["zh_cn", "중국어간체"], ["zh_tw", "중국어번체"],
 ];
-// 번역 컬럼은 절대 수정 금지(읽기 전용) — 원본 번역 데이터 보존
-const LOCKED = new Set(["en", "ja", "zh_cn", "zh_tw"]);
+// 번역 컬럼은 기본 수정 금지(읽기 전용) — "번역 수정" 토글을 켠 경우에만 편집 허용
+const TR_COLS = new Set(["en", "ja", "zh_cn", "zh_tw"]);
+function trEditable() { return $("#tr-edit").checked; }
+function isLocked(k) { return TR_COLS.has(k) && !trEditable(); }
 
 function renderRows() {
   const tb = $("#rows tbody"); tb.innerHTML = "";
@@ -195,7 +198,7 @@ function renderRows() {
       `<td class="col-del"><button data-del="${i}" title="삭제">×</button>` +
       `<button data-split="${i}" title="소/중/대 분할">＋</button></td>` +
       COLS.map(([k]) =>
-        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${LOCKED.has(k) ? ' readonly tabindex="-1" title="번역은 수정할 수 없습니다"' : ""}></td>`
+        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
       ).join("");
     tb.appendChild(tr);
     tr.addEventListener("click", (e) => {
@@ -206,7 +209,7 @@ function renderRows() {
   });
   tb.querySelectorAll("input").forEach((inp) => {
     inp.oninput = () => {
-      if (LOCKED.has(inp.dataset.k)) return;  // 번역 컬럼 수정 금지
+      if (isLocked(inp.dataset.k)) return;  // 번역 컬럼 수정 금지(토글 OFF 시)
       current.rows[inp.dataset.i][inp.dataset.k] = inp.value;
     };
     // ↑/↓/Enter 로 같은 컬럼 위아래 이동 (가격을 보면서 아래로 쭉 입력)
@@ -266,10 +269,14 @@ async function save() {
     body: JSON.stringify({
       rows: current.rows, title: current.title,
       reviewed: current.reviewed, status: current.status,
+      allow_translation_edit: trEditable(),  // 토글 ON일 때만 번역 수정 허용
     }),
   });
   await loadSidebar();
 }
+
+// 번역 수정 토글: 표를 다시 그려 readonly 상태 갱신
+$("#tr-edit").addEventListener("change", () => { if (current) renderRows(); });
 $("#export-all").onclick = () => { window.location = "/api/export"; };
 
 // init

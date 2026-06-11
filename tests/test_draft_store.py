@@ -53,10 +53,14 @@ def test_apply_update_rejects_translation_edits(tmp_path, monkeypatch):
         {"menu": "직접추가", "price": "1,000", "en": "", "ja": "", "zh_cn": "", "zh_tw": ""},
     ]
     assert draft_store.apply_update("777", {"rows": ok_rows}) is not None
-    # 거부: 번역 변조
+    # 거부: 번역 변조 (토글 OFF = 기본)
     bad_rows = [{**base, "en": "HACKED translation"}]
     with pytest.raises(ValueError):
         draft_store.apply_update("777", {"rows": bad_rows})
+    # 허용: "번역 수정" 토글 ON (조각 머지 등 의도적 수정)
+    merged_rows = [{**base, "menu": "1KG 장어 (소)", "en": "1KG Eel (Small)"}]
+    upd = draft_store.apply_update("777", {"rows": merged_rows, "allow_translation_edit": True})
+    assert upd["rows"][0]["en"] == "1KG Eel (Small)"
 
 
 def test_import_refreshes_unedited_preserves_edited(tmp_path, monkeypatch):

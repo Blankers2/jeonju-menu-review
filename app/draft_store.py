@@ -177,7 +177,9 @@ def apply_update(item_id: str, payload: dict) -> dict | None:
     draft = load_draft(item_id)
     if draft is None:
         return None
-    if "rows" in payload:
+    # 번역 수정은 기본 차단. UI의 "번역 수정" 토글을 켠 경우에만 허용
+    # (조각 머지 시 번역도 함께 머지해야 하는 케이스).
+    if "rows" in payload and not payload.get("allow_translation_edit"):
         _validate_translations(draft.get("rows", []), payload["rows"])
     for k in ("rows", "title", "reviewed", "status", "place_id"):
         if k in payload:
