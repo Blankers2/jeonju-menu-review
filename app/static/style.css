@@ -179,6 +179,8 @@ td input {
   background: transparent; color: var(--text);
 }
 td input:focus { outline: none; background: #fff; box-shadow: inset 0 0 0 2px var(--accent); border-radius: 4px; }
+td input[readonly] { color: var(--faint); cursor: default; user-select: text; }
+td input[readonly]:focus { background: transparent; box-shadow: none; }
 
 /* columns: 1=action, 2=메뉴명, 3=가격, 4~7=번역 */
 #rows th:nth-child(1), #rows td.col-del { width: 64px; text-align: center; }

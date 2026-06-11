@@ -183,6 +183,8 @@ const COLS = [
   ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
   ["ja", "일본어"], ["zh_cn", "중국어간체"], ["zh_tw", "중국어번체"],
 ];
+// 번역 컬럼은 절대 수정 금지(읽기 전용) — 원본 번역 데이터 보존
+const LOCKED = new Set(["en", "ja", "zh_cn", "zh_tw"]);
 
 function renderRows() {
   const tb = $("#rows tbody"); tb.innerHTML = "";
@@ -192,7 +194,9 @@ function renderRows() {
     tr.innerHTML =
       `<td class="col-del"><button data-del="${i}" title="삭제">×</button>` +
       `<button data-split="${i}" title="소/중/대 분할">＋</button></td>` +
-      COLS.map(([k]) => `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"></td>`).join("");
+      COLS.map(([k]) =>
+        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${LOCKED.has(k) ? ' readonly tabindex="-1" title="번역은 수정할 수 없습니다"' : ""}></td>`
+      ).join("");
     tb.appendChild(tr);
     tr.addEventListener("click", (e) => {
       if (e.target.tagName === "BUTTON") return;
@@ -201,7 +205,10 @@ function renderRows() {
     });
   });
   tb.querySelectorAll("input").forEach((inp) => {
-    inp.oninput = () => { current.rows[inp.dataset.i][inp.dataset.k] = inp.value; };
+    inp.oninput = () => {
+      if (LOCKED.has(inp.dataset.k)) return;  // 번역 컬럼 수정 금지
+      current.rows[inp.dataset.i][inp.dataset.k] = inp.value;
+    };
     // ↑/↓/Enter 로 같은 컬럼 위아래 이동 (가격을 보면서 아래로 쭉 입력)
     inp.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;

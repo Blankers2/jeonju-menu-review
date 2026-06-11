@@ -110,7 +110,10 @@ def get_image_draft(item_id: str):
 
 @server.put("/api/images/{item_id}")
 def update_image_draft(item_id: str, payload: dict):
-    d = draft_store.apply_update(item_id, payload)
+    try:
+        d = draft_store.apply_update(item_id, payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if d is None:
         raise HTTPException(404, "draft not found")
     return d

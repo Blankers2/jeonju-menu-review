@@ -155,10 +155,30 @@ def import_uploaded(files: list) -> dict:
     return counts
 
 
+_TR_KEYS = ("en", "ja", "zh_cn", "zh_tw")
+
+
+def _tr_tuple(row: dict) -> tuple:
+    return tuple((row.get(k) or "").strip() for k in _TR_KEYS)
+
+
+def _validate_translations(existing_rows: list, new_rows: list) -> None:
+    """번역 4종은 절대 수정 금지. 기존 행의 번역 묶음을 그대로 쓰거나(분할/복제 허용)
+    전부 빈 값(수동 추가 행)이어야 함. 위반 시 ValueError."""
+    allowed = {_tr_tuple(r) for r in existing_rows}
+    allowed.add(("", "", "", ""))
+    for r in new_rows:
+        if _tr_tuple(r) not in allowed:
+            raise ValueError(
+                f"번역 컬럼은 수정할 수 없습니다 (메뉴: {r.get('menu', '')!r})")
+
+
 def apply_update(item_id: str, payload: dict) -> dict | None:
     draft = load_draft(item_id)
     if draft is None:
         return None
+    if "rows" in payload:
+        _validate_translations(draft.get("rows", []), payload["rows"])
     for k in ("rows", "title", "reviewed", "status", "place_id"):
         if k in payload:
             draft[k] = payload[k]

@@ -32,11 +32,31 @@ def test_save_load_and_update(tmp_path, monkeypatch):
     assert loaded["item_id"] == "999"
     assert "999" in [x["item_id"] for x in draft_store.list_drafts()]
 
+    sansa = next(r for r in d["rows"] if r["menu"] == "산사춘")
     upd = draft_store.apply_update("999", {"reviewed": True, "rows": [
-        {"menu": "산사춘", "price": "7,000", "en": "Sansachun", "ja": "", "zh_cn": "", "zh_tw": ""}]})
+        {**sansa, "price": "7,000"}]})
     assert upd["reviewed"] is True
     assert upd["rows"][0]["price"] == "7,000"
     assert draft_store.apply_update("missing", {"reviewed": True}) is None
+
+
+def test_apply_update_rejects_translation_edits(tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.setattr(draft_store, "DRAFTS_DIR", tmp_path)
+    d = draft_store.build_draft("777", META, FRAGS)
+    draft_store.save_draft(d)
+    base = d["rows"][0]
+    # 허용: 번역 그대로 두고 메뉴명/가격 수정, 행 분할(번역 복제), 빈 번역 새 행
+    ok_rows = [
+        {**base, "menu": "산사춘(병)", "price": "7,000"},
+        {**base, "menu": "산사춘(잔)", "price": "3,000"},
+        {"menu": "직접추가", "price": "1,000", "en": "", "ja": "", "zh_cn": "", "zh_tw": ""},
+    ]
+    assert draft_store.apply_update("777", {"rows": ok_rows}) is not None
+    # 거부: 번역 변조
+    bad_rows = [{**base, "en": "HACKED translation"}]
+    with pytest.raises(ValueError):
+        draft_store.apply_update("777", {"rows": bad_rows})
 
 
 def test_import_refreshes_unedited_preserves_edited(tmp_path, monkeypatch):
