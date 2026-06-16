@@ -33,7 +33,11 @@ function open(i){
   $("#orig").href = it.image_url || "#";
   $("#idx").textContent = `${i+1} / ${view.length}`;
   $("#jump").value = i;
-  const img=$("#img"); img.onload=()=>{nW=img.naturalWidth;nH=img.naturalHeight;fit();}; img.src=it.image_url||"";
+  const img=$("#img"), sp=$("#spinner");
+  sp.hidden=false; sp.classList.remove("err"); $("#sp-text").textContent="이미지 불러오는 중…"; img.classList.add("loading");
+  img.onload=()=>{ sp.hidden=true; img.classList.remove("loading"); nW=img.naturalWidth; nH=img.naturalHeight; fit(); };
+  img.onerror=()=>{ img.classList.remove("loading"); sp.classList.add("err"); $("#sp-text").textContent="이미지를 불러올 수 없습니다 (인터넷 연결 확인)"; };
+  img.removeAttribute("src"); img.src=it.image_url||"";
   const tb=$("#menu tbody"); tb.innerHTML="";
   it.rows.forEach(r=>{ const tr=document.createElement("tr");
     tr.innerHTML=`<td class="m">${esc(r.menu)||"&nbsp;"}</td><td class="p${r.price?"":" empty"}">${esc(r.price)||"–"}</td>`;

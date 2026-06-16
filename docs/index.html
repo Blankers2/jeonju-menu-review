@@ -16,6 +16,7 @@
     <button id="prev" class="ib" title="이전 (←)">◀</button>
     <span id="idx" class="idx">– / –</span>
     <button id="next" class="ib" title="다음 (→)">▶</button>
+    <span class="navhint">← → 방향키로 이동</span>
   </div>
   <select id="jump" title="가게로 이동"></select>
   <span id="meta-gen" class="gen sp"></span>
@@ -35,7 +36,7 @@
         <a id="orig" href="#" target="_blank" rel="noopener" title="원본 새 탭">↗</a>
       </span>
     </div>
-    <div id="imgwrap"><img id="img" alt="이미지를 불러오는 중…" /></div>
+    <div id="imgwrap"><div id="spinner" hidden><div class="sp-ring"></div><span id="sp-text">이미지 불러오는 중…</span></div><img id="img" alt="" /></div>
   </section>
 
   <aside id="right">
