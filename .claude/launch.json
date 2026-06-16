@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "uvicorn", "app.server:server", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "review-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8012", "-d", "docs"],
+      "port": 8012
     }
   ]
 }

@@ -9,3 +9,8 @@ data/translations/
 # 구 OCR 이미지 데이터
 원본파일 모음/
 케이스모음/
+# 생성된 핸드오프/회신 산출물
+menu-finder-동료.zip
+메뉴검수_동료.html
+메뉴검수_회신_*.json
+서버켜기.bat
