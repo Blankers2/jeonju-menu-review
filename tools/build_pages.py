@@ -30,6 +30,17 @@ def main():
         })
     items.sort(key=lambda x: (x["place_id"] or 0, int(x["item_id"]) if str(x["item_id"]).isdigit() else 0))
 
+    # ★ 안전 가드: 공개 페이지엔 번역값이 단 하나도 들어가면 안 됨.
+    #    rows 는 menu/price 만 허용. 위반 시 빌드 중단(커밋 자체를 막음).
+    FORBIDDEN = {"en", "ja", "zh_cn", "zh_tw"}
+    for it in items:
+        for r in it["rows"]:
+            bad = FORBIDDEN & set(r.keys())
+            if bad or set(r.keys()) - {"menu", "price"}:
+                raise SystemExit(
+                    f"[차단] 번역/비허용 필드가 감지됨 (item {it['item_id']}): {sorted(set(r.keys()))}. "
+                    "공개 data.json 에는 menu/price 만 허용됩니다.")
+
     bundle = {
         "generated_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "count": len(items),

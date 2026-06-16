@@ -29,9 +29,10 @@ main{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2fr 1fr;gap:1
 .zoom{margin-left:auto;display:flex;align-items:center;gap:5px;}
 .zoom a{height:30px;min-width:30px;display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--accent);font-weight:700;}
 
-#imgwrap{flex:1 1 auto;min-height:0;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-sm);
+#imgwrap{flex:1 1 auto;min-height:0;overflow:auto;display:flex;background:#fff;border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-sm);
   background-image:repeating-conic-gradient(#f1f3f7 0% 25%,#f7f9fc 0% 50%);background-size:24px 24px;padding:12px;}
-#img{display:block;border-radius:6px;box-shadow:0 4px 20px rgba(18,24,40,.16);background:#fff;}
+/* margin:auto 로 가운데 정렬 — 확대해 이미지가 커져도 모든 방향 스크롤 가능 */
+#img{display:block;margin:auto;border-radius:6px;box-shadow:0 4px 20px rgba(18,24,40,.16);background:#fff;}
 
 #right{min-height:0;background:var(--surface);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-sm);overflow:auto;}
 #menu{width:100%;border-collapse:separate;border-spacing:0;}
