@@ -195,8 +195,11 @@ function renderRows() {
     const tr = document.createElement("tr");
     if (i === selectedRow) tr.classList.add("sel");
     tr.innerHTML =
-      `<td class="col-del"><button data-del="${i}" title="삭제">×</button>` +
-      `<button data-split="${i}" title="소/중/대 분할">＋</button></td>` +
+      `<td class="col-del">` +
+      `<button data-up="${i}" title="위로 이동"${i === 0 ? " disabled" : ""}>▲</button>` +
+      `<button data-down="${i}" title="아래로 이동"${i === current.rows.length - 1 ? " disabled" : ""}>▼</button>` +
+      `<button data-split="${i}" title="소/중/대 분할">＋</button>` +
+      `<button data-del="${i}" title="삭제">×</button></td>` +
       COLS.map(([k]) =>
         `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
       ).join("");
@@ -224,6 +227,17 @@ function renderRows() {
   });
   tb.querySelectorAll("[data-del]").forEach((b) =>
     b.onclick = () => { current.rows.splice(+b.dataset.del, 1); if (selectedRow >= current.rows.length) selectedRow = -1; renderRows(); });
+  const move = (i, j) => {  // i번 행을 j 위치로 (인접 스왑)
+    if (j < 0 || j >= current.rows.length) return;
+    const [r] = current.rows.splice(i, 1);
+    current.rows.splice(j, 0, r);
+    selectedRow = j;
+    renderRows();
+  };
+  tb.querySelectorAll("[data-up]").forEach((b) =>
+    b.onclick = () => move(+b.dataset.up, +b.dataset.up - 1));
+  tb.querySelectorAll("[data-down]").forEach((b) =>
+    b.onclick = () => move(+b.dataset.down, +b.dataset.down + 1));
   tb.querySelectorAll("[data-split]").forEach((b) =>
     b.onclick = () => {
       const r = current.rows[+b.dataset.split];

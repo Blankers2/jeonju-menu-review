@@ -190,7 +190,7 @@ td input[readonly] { color: var(--faint); cursor: default; user-select: text; }
 td input[readonly]:focus { background: transparent; box-shadow: none; }
 
 /* columns: 1=action, 2=메뉴명, 3=가격, 4~7=번역 */
-#rows th:nth-child(1), #rows td.col-del { width: 64px; text-align: center; }
+#rows th:nth-child(1), #rows td.col-del { width: 62px; }
 #rows th:nth-child(2), #rows td:nth-child(2) { width: 40%; }
 #rows td:nth-child(2) input { font-size: 14.5px; font-weight: 600; }
 #rows th:nth-child(3), #rows td:nth-child(3) { width: 13%; }
@@ -199,12 +199,16 @@ td input[readonly]:focus { background: transparent; box-shadow: none; }
 #rows td:nth-child(n+4):nth-child(-n+7) { width: 10%; }
 #rows td:nth-child(n+4):nth-child(-n+7) input { color: var(--muted); font-size: 12px; }
 
-.col-del { white-space: nowrap; }
+/* 액션 버튼 2x2 그리드: ▲ ▼ / ＋ × */
+.col-del { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; padding: 3px; }
 .col-del button {
-  width: 22px; height: 22px; margin: 0 1px; border-radius: 6px; cursor: pointer;
+  width: 23px; height: 22px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--border); background: var(--surface); color: var(--faint);
-  font-size: 13px; line-height: 1; transition: all .12s ease;
+  font-size: 11px; line-height: 1; transition: all .12s ease;
 }
+.col-del button:disabled { opacity: .28; cursor: default; }
+.col-del button[data-up]:not(:disabled):hover,
+.col-del button[data-down]:not(:disabled):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
 .col-del button[data-del]:hover { border-color: var(--danger); color: var(--danger); background: #fdeceb; }
 .col-del button[data-split]:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
 
