@@ -1,6 +1,6 @@
 // 시청 최종검수 정적 뷰어 (읽기 전용). data.json 로드 → 좌 이미지 / 우 메뉴·가격.
 const $ = (s) => document.querySelector(s);
-let ALL = [], view = [], cur = -1, zoom = 1, nW = 0, nH = 0;
+let ALL = [], view = [], cur = -1, zoom = 1, nW = 0, nH = 0, navToken = 0;
 
 function esc(s){return (s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
@@ -34,9 +34,13 @@ function open(i){
   $("#idx").textContent = `${i+1} / ${view.length}`;
   $("#jump").value = i;
   const img=$("#img"), sp=$("#spinner");
+  const tok=++navToken, t0=(performance.now?performance.now():Date.now());
   sp.hidden=false; sp.classList.remove("err"); $("#sp-text").textContent="이미지 불러오는 중…"; img.classList.add("loading");
-  img.onload=()=>{ sp.hidden=true; img.classList.remove("loading"); nW=img.naturalWidth; nH=img.naturalHeight; fit(); };
-  img.onerror=()=>{ img.classList.remove("loading"); sp.classList.add("err"); $("#sp-text").textContent="이미지를 불러올 수 없습니다 (인터넷 연결 확인)"; };
+  const reveal=()=>{ if(tok!==navToken)return;  // 더 최신 탐색이 있으면 무시
+    const now=(performance.now?performance.now():Date.now()), wait=Math.max(0,250-(now-t0));
+    setTimeout(()=>{ if(tok!==navToken)return; sp.hidden=true; img.classList.remove("loading"); }, wait); };
+  img.onload=()=>{ if(tok!==navToken)return; nW=img.naturalWidth; nH=img.naturalHeight; fit(); reveal(); };
+  img.onerror=()=>{ if(tok!==navToken)return; img.classList.remove("loading"); sp.classList.add("err"); $("#sp-text").textContent="이미지를 불러올 수 없습니다 (인터넷 연결 확인)"; };
   img.removeAttribute("src"); img.src=it.image_url||"";
   const tb=$("#menu tbody"); tb.innerHTML="";
   it.rows.forEach(r=>{ const tr=document.createElement("tr");

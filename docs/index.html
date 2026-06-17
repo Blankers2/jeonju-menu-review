@@ -10,15 +10,23 @@
 </head>
 <body>
 <header>
-  <span class="brand"><span class="mark"></span>메뉴 최종검수</span>
-  <input id="search" placeholder="가게명 · item · 메뉴 검색" />
-  <div class="nav">
-    <button id="prev" class="ib" title="이전 (←)">◀</button>
-    <span id="idx" class="idx">– / –</span>
-    <button id="next" class="ib" title="다음 (→)">▶</button>
-    <span class="navhint">← → 방향키로 이동</span>
+  <span class="brand"><span class="mark"></span>메뉴 <b>최종검수</b></span>
+
+  <div class="searchbox">
+    <span class="ic">⌕</span>
+    <input id="search" placeholder="가게명 · item · 메뉴 검색" />
   </div>
   <select id="jump" title="가게로 이동"></select>
+
+  <div class="navcluster">
+    <div class="navpill">
+      <button id="prev" class="navbtn" title="이전 (←)">◀</button>
+      <span id="idx" class="idx">– / –</span>
+      <button id="next" class="navbtn" title="다음 (→)">▶</button>
+    </div>
+    <span class="navhint"><kbd>←</kbd><kbd>→</kbd> 방향키로 이동</span>
+  </div>
+
   <span id="meta-gen" class="gen sp"></span>
 </header>
 
