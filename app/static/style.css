@@ -190,27 +190,33 @@ td input[readonly] { color: var(--faint); cursor: default; user-select: text; }
 td input[readonly]:focus { background: transparent; box-shadow: none; }
 
 /* columns: 1=action, 2=메뉴명, 3=가격, 4~7=번역 */
-#rows th:nth-child(1), #rows td.col-del { width: 62px; }
-#rows th:nth-child(2), #rows td:nth-child(2) { width: 40%; }
+/* 고정 px 폭: 메뉴명·가격·영어는 충분히 보이고, 일본어·중국어는 가로 스크롤로 확인.
+   (번역 검수 때 4개 언어 모두 봐야 하므로 열은 유지, 폭만 넓혀 스크롤) */
+#rows { table-layout: fixed; width: max-content; min-width: 100%; }
+#rows th:nth-child(1), #rows td.col-del { width: 60px; }
+#rows th:nth-child(2), #rows td:nth-child(2) { width: 230px; }
 #rows td:nth-child(2) input { font-size: 14.5px; font-weight: 600; }
-#rows th:nth-child(3), #rows td:nth-child(3) { width: 13%; }
+#rows th:nth-child(3), #rows td:nth-child(3) { width: 92px; }
 #rows td:nth-child(3) input { font-family: var(--mono); font-size: 12.5px; }
-#rows th:nth-child(n+4):nth-child(-n+7),
-#rows td:nth-child(n+4):nth-child(-n+7) { width: 10%; }
+#rows th:nth-child(4), #rows td:nth-child(4) { width: 280px; }   /* 영어: 전체 보이게 */
+#rows th:nth-child(5), #rows td:nth-child(5) { width: 220px; }   /* 일본어 */
+#rows th:nth-child(6), #rows td:nth-child(6) { width: 180px; }   /* 중국어간체 */
+#rows th:nth-child(7), #rows td:nth-child(7) { width: 180px; }   /* 중국어번체 */
 #rows td:nth-child(n+4):nth-child(-n+7) input { color: var(--muted); font-size: 12px; }
 
-/* 액션 버튼 2x2 그리드: ▲ ▼ / ＋ × */
-.col-del { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; padding: 3px; }
+/* 액션 칸: 드래그 핸들 + 분할 + 삭제 (한 줄, 이전 행 높이) */
+.col-del { display: flex; align-items: center; gap: 2px; padding: 0 4px; white-space: nowrap; }
+.col-del .drag { cursor: grab; color: var(--faint); font-size: 14px; padding: 0 2px; user-select: none; line-height: 1; }
+.col-del .drag:active { cursor: grabbing; }
 .col-del button {
-  width: 23px; height: 22px; border-radius: 6px; cursor: pointer;
+  width: 22px; height: 22px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--border); background: var(--surface); color: var(--faint);
-  font-size: 11px; line-height: 1; transition: all .12s ease;
+  font-size: 13px; line-height: 1; transition: all .12s ease;
 }
-.col-del button:disabled { opacity: .28; cursor: default; }
-.col-del button[data-up]:not(:disabled):hover,
-.col-del button[data-down]:not(:disabled):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
 .col-del button[data-del]:hover { border-color: var(--danger); color: var(--danger); background: #fdeceb; }
 .col-del button[data-split]:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
+#rows tbody tr.dragging { opacity: .4; }
+#rows tbody tr.drop-target td { box-shadow: inset 0 2px 0 var(--accent); }
 
 /* ---------- Actions ---------- */
 .actions { flex: 0 0 auto; display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }

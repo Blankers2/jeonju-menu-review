@@ -1,7 +1,18 @@
 const $ = (s) => document.querySelector(s);
 let current = null;       // 현재 item 드래프트
 let selectedRow = -1;     // 가격 할당 대상 행
+let dragFrom = -1;        // 드래그 중인 행 인덱스
 let zoom = 1;
+
+// 드래그로 행 순서 변경: from 행을 to 위치로 이동
+function reorderRow(from, to) {
+  if (from < 0 || from === to || !current) return;
+  const [r] = current.rows.splice(from, 1);
+  const dest = from < to ? to - 1 : to;  // 제거 후 인덱스 보정
+  current.rows.splice(dest, 0, r);
+  selectedRow = dest;
+  renderRows();
+}
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -196,8 +207,7 @@ function renderRows() {
     if (i === selectedRow) tr.classList.add("sel");
     tr.innerHTML =
       `<td class="col-del">` +
-      `<button data-up="${i}" title="위로 이동"${i === 0 ? " disabled" : ""}>▲</button>` +
-      `<button data-down="${i}" title="아래로 이동"${i === current.rows.length - 1 ? " disabled" : ""}>▼</button>` +
+      `<span class="drag" draggable="true" title="드래그해서 행 이동">⠿</span>` +
       `<button data-split="${i}" title="소/중/대 분할">＋</button>` +
       `<button data-del="${i}" title="삭제">×</button></td>` +
       COLS.map(([k]) =>
@@ -209,6 +219,19 @@ function renderRows() {
       selectedRow = i;
       document.querySelectorAll("#rows tbody tr").forEach((t, j) => t.classList.toggle("sel", j === i));
     });
+    // ---- 드래그로 행 이동 ----
+    const handle = tr.querySelector(".drag");
+    handle.addEventListener("dragstart", (e) => {
+      dragFrom = i; tr.classList.add("dragging"); e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(i));
+    });
+    handle.addEventListener("dragend", () => {
+      tr.classList.remove("dragging");
+      tb.querySelectorAll("tr").forEach((t) => t.classList.remove("drop-target"));
+    });
+    tr.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; tr.classList.add("drop-target"); });
+    tr.addEventListener("dragleave", () => tr.classList.remove("drop-target"));
+    tr.addEventListener("drop", (e) => { e.preventDefault(); tr.classList.remove("drop-target"); reorderRow(dragFrom, i); });
   });
   tb.querySelectorAll("input").forEach((inp) => {
     inp.oninput = () => {
@@ -227,17 +250,6 @@ function renderRows() {
   });
   tb.querySelectorAll("[data-del]").forEach((b) =>
     b.onclick = () => { current.rows.splice(+b.dataset.del, 1); if (selectedRow >= current.rows.length) selectedRow = -1; renderRows(); });
-  const move = (i, j) => {  // i번 행을 j 위치로 (인접 스왑)
-    if (j < 0 || j >= current.rows.length) return;
-    const [r] = current.rows.splice(i, 1);
-    current.rows.splice(j, 0, r);
-    selectedRow = j;
-    renderRows();
-  };
-  tb.querySelectorAll("[data-up]").forEach((b) =>
-    b.onclick = () => move(+b.dataset.up, +b.dataset.up - 1));
-  tb.querySelectorAll("[data-down]").forEach((b) =>
-    b.onclick = () => move(+b.dataset.down, +b.dataset.down + 1));
   tb.querySelectorAll("[data-split]").forEach((b) =>
     b.onclick = () => {
       const r = current.rows[+b.dataset.split];
