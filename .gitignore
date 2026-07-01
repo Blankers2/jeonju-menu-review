@@ -6,6 +6,7 @@ venv/
 # 입력 데이터(코드 아님)
 data/place_item_list.xlsx
 data/translations/
+전주시청 번역모음/
 # 구 OCR 이미지 데이터
 원본파일 모음/
 케이스모음/
