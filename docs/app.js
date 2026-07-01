@@ -43,7 +43,14 @@ function open(i){
   img.onerror=()=>{ if(tok!==navToken)return; img.classList.remove("loading"); sp.classList.add("err"); $("#sp-text").textContent="이미지를 불러올 수 없습니다 (인터넷 연결 확인)"; };
   img.removeAttribute("src"); img.src=it.image_url||"";
   const tb=$("#menu tbody"); tb.innerHTML="";
-  it.rows.forEach(r=>{ const tr=document.createElement("tr");
+  let lastCat=null;
+  it.rows.forEach(r=>{
+    const cat=(r.category||"").trim();
+    if(cat!==lastCat && cat){ lastCat=cat;
+      const h=document.createElement("tr"); h.className="cat-row";
+      h.innerHTML=`<td colspan="2">${esc(cat)}</td>`; tb.appendChild(h);
+    } else if(cat) { lastCat=cat; }
+    const tr=document.createElement("tr");
     tr.innerHTML=`<td class="m">${esc(r.menu)||"&nbsp;"}</td><td class="p${r.price?"":" empty"}">${esc(r.price)||"–"}</td>`;
     tb.appendChild(tr); });
 }

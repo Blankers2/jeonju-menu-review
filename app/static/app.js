@@ -208,7 +208,7 @@ window.addEventListener("resize", () => { if (naturalW) fitImage(); });
 
 // ---- 조립 표 ----
 const COLS = [
-  ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
+  ["category", "분류"], ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
   ["ja", "일본어"], ["zh_cn", "중국어간체"], ["zh_tw", "중국어번체"],
 ];
 // 번역 컬럼은 기본 수정 금지(읽기 전용) — "번역 수정" 토글을 켠 경우에만 편집 허용
@@ -227,7 +227,7 @@ function renderRows() {
       `<button data-split="${i}" title="소/중/대 분할">＋</button>` +
       `<button data-del="${i}" title="삭제">×</button></td>` +
       COLS.map(([k]) =>
-        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
+        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${k === "category" ? ' list="cat-list" placeholder="분류"' : ""}${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
       ).join("");
     tb.appendChild(tr);
     tr.addEventListener("click", (e) => {
@@ -270,7 +270,7 @@ function renderRows() {
     b.onclick = () => {
       const r = current.rows[+b.dataset.split];
       current.rows.splice(+b.dataset.split + 1, 0,
-        { menu: r.menu, price: "", en: r.en, ja: r.ja, zh_cn: r.zh_cn, zh_tw: r.zh_tw });
+        { category: r.category || "", menu: r.menu, price: "", en: r.en, ja: r.ja, zh_cn: r.zh_cn, zh_tw: r.zh_tw });
       renderRows();
     });
 }
@@ -295,7 +295,7 @@ function renderPrices() {
 
 // ---- 액션 ----
 $("#add-row").onclick = () => {
-  current.rows.push({ menu: "", price: "", en: "", ja: "", zh_cn: "", zh_tw: "" });
+  current.rows.push({ category: "", menu: "", price: "", en: "", ja: "", zh_cn: "", zh_tw: "" });
   renderRows();
 };
 $("#mark-done").onclick = async () => {

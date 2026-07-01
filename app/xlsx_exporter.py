@@ -3,7 +3,7 @@ from pathlib import Path
 
 import openpyxl
 
-HEADERS = ["place_id", "가게명", "item_id", "메뉴명", "가격",
+HEADERS = ["place_id", "가게명", "item_id", "분류", "메뉴명", "가격",
            "영어", "일본어", "중국어간체", "중국어번체", "image_url"]
 
 
@@ -17,7 +17,7 @@ def draft_to_rows(draft: dict) -> list[list]:
             continue
         out.append([
             draft.get("place_id"), draft.get("title", ""), draft.get("item_id", ""),
-            menu, price,
+            r.get("category", ""), menu, price,
             r.get("en", ""), r.get("ja", ""), r.get("zh_cn", ""), r.get("zh_tw", ""),
             draft.get("image_url", ""),
         ])

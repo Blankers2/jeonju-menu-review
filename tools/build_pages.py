@@ -18,7 +18,8 @@ def main():
     items = []
     for f in glob.glob(str(DRAFTS / "*.json")):
         d = json.loads(Path(f).read_text(encoding="utf-8"))
-        rows = [{"menu": (r.get("menu") or "").strip(), "price": (r.get("price") or "").strip()}
+        rows = [{"menu": (r.get("menu") or "").strip(), "price": (r.get("price") or "").strip(),
+                 "category": (r.get("category") or "").strip()}
                 for r in d.get("rows", [])
                 if (r.get("menu") or "").strip() or (r.get("price") or "").strip()]
         if not rows:
@@ -33,13 +34,14 @@ def main():
     # ★ 안전 가드: 공개 페이지엔 번역값이 단 하나도 들어가면 안 됨.
     #    rows 는 menu/price 만 허용. 위반 시 빌드 중단(커밋 자체를 막음).
     FORBIDDEN = {"en", "ja", "zh_cn", "zh_tw"}
+    ALLOWED = {"menu", "price", "category"}
     for it in items:
         for r in it["rows"]:
             bad = FORBIDDEN & set(r.keys())
-            if bad or set(r.keys()) - {"menu", "price"}:
+            if bad or set(r.keys()) - ALLOWED:
                 raise SystemExit(
                     f"[차단] 번역/비허용 필드가 감지됨 (item {it['item_id']}): {sorted(set(r.keys()))}. "
-                    "공개 data.json 에는 menu/price 만 허용됩니다.")
+                    "공개 data.json 에는 menu/price/category 만 허용됩니다.")
 
     bundle = {
         "generated_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),

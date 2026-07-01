@@ -70,6 +70,7 @@ main{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2fr 1fr;gap:1
 #menu thead th:last-child{width:34%;text-align:right;}
 #menu td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
 #menu tbody tr:nth-child(even){background:#fcfdff;}
+#menu tr.cat-row td{background:var(--accent-weak);color:var(--accent-ink);font-weight:700;font-size:12px;padding:6px 12px;border-bottom:1px solid var(--border-strong);position:sticky;}
 #menu .m{font-size:14px;font-weight:600;line-height:1.35;}
 #menu .p{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;color:var(--accent-ink);}
 #menu .p.empty{color:var(--faint);}
