@@ -2,11 +2,27 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import json
+
 from app.config import STATIC_DIR, STORAGE_DIR
 from app import draft_store
 from app.xlsx_exporter import write_workbook
 
 server = FastAPI(title="Menu Finder")
+
+_CITY_FIXES = STORAGE_DIR / "city_fixes.json"
+
+
+@server.get("/api/fixes/{item_id}")
+def get_fixes(item_id: str):
+    """해당 item이 속한 place의 시청 수정지시 코멘트(있으면)."""
+    if not _CITY_FIXES.exists():
+        return {}
+    d = draft_store.load_draft(item_id)
+    if not d:
+        return {}
+    fixes = json.loads(_CITY_FIXES.read_text(encoding="utf-8"))
+    return fixes.get(str(d.get("place_id")), {})
 
 
 @server.get("/api/settings")

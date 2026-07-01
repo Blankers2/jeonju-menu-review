@@ -165,9 +165,25 @@ async function openItem(itemId) {
   renderImage();
   renderRows();
   renderPrices();
+  renderCityFix();
   // 사이드바 active 갱신
   document.querySelectorAll(".img-item").forEach((e) => e.classList.remove("active"));
   loadSidebar();
+}
+
+// 시청 수정지시 코멘트 배너
+async function renderCityFix() {
+  const el = $("#city-fix");
+  el.hidden = true; el.innerHTML = "";
+  try {
+    const fx = await api(`/api/fixes/${encodeURIComponent(current.item_id)}`);
+    if (!fx || !fx.comments || !fx.comments.length) return;
+    const pages = (fx.pages || []).join(", ");
+    el.innerHTML = `<div class="cf-head">📋 시청 수정요청${pages ? ` <span class="cf-pg">p.${pages}</span>` : ""}</div>`
+      + fx.comments.map((c) => `<div class="cf-line">${esc(c).replace(/\n/g, "<br>")}</div>`).join("")
+      + ((fx.memo && fx.memo.length) ? `<div class="cf-memo">메모: ${esc(fx.memo.join(" / "))}</div>` : "");
+    el.hidden = false;
+  } catch (e) { /* 코멘트 없거나 파일 없음 → 무시 */ }
 }
 
 let naturalW = 0, naturalH = 0;

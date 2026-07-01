@@ -169,6 +169,11 @@ main {
 }
 #title:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,91,219,.15); }
 
+.city-fix { flex: 0 0 auto; margin-bottom: 8px; padding: 8px 12px; border: 1px solid #f2c94c; border-left: 4px solid #e0a800; border-radius: 8px; background: #fffbeb; font-size: 12.5px; line-height: 1.45; max-height: 120px; overflow: auto; }
+.city-fix .cf-head { font-weight: 700; color: #8a6d00; margin-bottom: 3px; }
+.city-fix .cf-pg { font-family: var(--mono); font-weight: 600; color: #a97b00; font-size: 11px; }
+.city-fix .cf-line { color: #4b4632; }
+.city-fix .cf-memo { margin-top: 3px; color: #8a6d00; font-style: italic; }
 .table-wrap { flex: 1 1 auto; overflow: auto; min-height: 0; border: 1px solid var(--border); border-radius: 10px; }
 table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 thead th {
