@@ -3,14 +3,42 @@ let current = null;       // 현재 item 드래프트
 let selectedRow = -1;     // 가격 할당 대상 행
 let dragFrom = -1;        // 드래그 중인 행 인덱스
 let zoom = 1;
+let catGroups = [];       // 현재 item의 분류 그룹(순서). 빈 그룹도 유지(뷰 전용)
+let catInfo = {};         // 추천 카테고리 ko -> {has_fragment, en, ...}
 
-// 드래그로 행 순서 변경: from 행을 to 위치로 이동
+// 드래그로 행 순서 변경: from 행을 to 위치로 이동(대상 행의 분류를 따라감)
 function reorderRow(from, to) {
   if (from < 0 || from === to || !current) return;
+  const cat = current.rows[to]?.category || "";
   const [r] = current.rows.splice(from, 1);
+  r.category = cat;
   const dest = from < to ? to - 1 : to;  // 제거 후 인덱스 보정
   current.rows.splice(dest, 0, r);
   selectedRow = dest;
+  renderRows();
+}
+
+// rows 배열을 그룹 순서(미분류 → catGroups 순)로 안정 정렬해 유지
+function normalizeGroups() {
+  for (const r of current.rows) {
+    const c = (r.category || "").trim();
+    if (c && !catGroups.includes(c)) catGroups.push(c);
+  }
+  const sel = current.rows[selectedRow];
+  const order = ["", ...catGroups];
+  const buckets = new Map(order.map((g) => [g, []]));
+  for (const r of current.rows) buckets.get((r.category || "").trim()).push(r);
+  current.rows = order.flatMap((g) => buckets.get(g));
+  selectedRow = sel ? current.rows.indexOf(sel) : -1;
+}
+
+// 행을 특정 그룹의 끝으로 이동
+function moveRowToGroup(from, cat) {
+  if (from < 0 || !current) return;
+  current.rows[from].category = cat;
+  const sel = current.rows[from];
+  normalizeGroups();
+  selectedRow = current.rows.indexOf(sel);
   renderRows();
 }
 
@@ -157,15 +185,19 @@ async function openItem(itemId) {
   current = await api(`/api/images/${encodeURIComponent(itemId)}`);
   selectedRow = -1;
   zoom = 1;
+  catGroups = [];
+  catInfo = {};
   $("#tr-edit").checked = false;  // 아이템 열 때마다 번역 수정 OFF로 리셋
   $("#title").value = current.title || "";
   $("#meta-info").textContent =
     `place ${current.place_id ?? "-"} · item ${current.item_id} · ${current.width ?? "?"}×${current.height ?? "?"}`;
   $("#open-orig").href = current.image_url || "#";
+  normalizeGroups();
   renderImage();
   renderRows();
   renderPrices();
   renderCityFix();
+  renderCatBar();   // 추천은 비동기 로드
   // 사이드바 active 갱신
   document.querySelectorAll(".img-item").forEach((e) => e.classList.remove("active"));
   loadSidebar();
@@ -206,9 +238,62 @@ $("#zoom-out").onclick = () => { zoom = Math.max(zoom / 1.25, 0.05); applyZoom()
 $("#zoom-reset").onclick = () => { fitImage(); };  // "맞춤" = 영역에 맞게
 window.addEventListener("resize", () => { if (naturalW) fitImage(); });
 
+// ---- 카테고리 그룹 바 ----
+let _catReq = 0;
+async function renderCatBar() {
+  const chips = $("#cat-chips");
+  chips.innerHTML = `<span class="hint">추천 불러오는 중…</span>`;
+  const token = ++_catReq;
+  try {
+    const res = await api(`/api/categories/${encodeURIComponent(current.item_id)}`);
+    if (token !== _catReq) return;  // 다른 item으로 이동함
+    catInfo = {};
+    for (const s of res.suggestions || []) catInfo[s.ko] = s;
+    drawCatChips();
+    if (catGroups.length) renderRows();  // 그룹 헤더의 조각 배지 갱신
+  } catch (e) {
+    if (token === _catReq) chips.innerHTML = `<span class="hint">추천 없음</span>`;
+  }
+}
+
+function drawCatChips() {
+  const chips = $("#cat-chips");
+  chips.innerHTML = "";
+  const names = Object.keys(catInfo).filter((k) => !catGroups.includes(k));
+  if (!names.length) {
+    chips.innerHTML = `<span class="hint">${Object.keys(catInfo).length ? "모든 추천 추가됨" : "추천 없음 — 직접입력"}</span>`;
+    return;
+  }
+  for (const ko of names) {
+    const s = catInfo[ko];
+    const c = document.createElement("button");
+    c.className = "cat-chip" + (s.has_fragment ? "" : " no-frag");
+    c.textContent = ko;
+    c.title = s.has_fragment
+      ? `번역조각 있음 · en: ${s.en || "-"} / ja: ${s.ja || "-"}`
+      : "⚠ 번역조각 없음 (한국어만 — 번역은 별도 확보 필요)";
+    c.onclick = () => addCatGroup(ko);
+    chips.appendChild(c);
+  }
+}
+
+function addCatGroup(name) {
+  name = (name || "").trim();
+  if (!name || catGroups.includes(name)) return;
+  catGroups.push(name);
+  normalizeGroups();
+  renderRows();
+  drawCatChips();
+}
+
+$("#cat-add").onclick = () => { addCatGroup($("#cat-new").value); $("#cat-new").value = ""; };
+$("#cat-new").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); addCatGroup($("#cat-new").value); $("#cat-new").value = ""; }
+});
+
 // ---- 조립 표 ----
 const COLS = [
-  ["category", "분류"], ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
+  ["menu", "메뉴명"], ["price", "가격"], ["en", "영어"],
   ["ja", "일본어"], ["zh_cn", "중국어간체"], ["zh_tw", "중국어번체"],
 ];
 // 번역 컬럼은 기본 수정 금지(읽기 전용) — "번역 수정" 토글을 켠 경우에만 편집 허용
@@ -218,22 +303,54 @@ function isLocked(k) { return TR_COLS.has(k) && !trEditable(); }
 
 function renderRows() {
   const tb = $("#rows tbody"); tb.innerHTML = "";
-  current.rows.forEach((row, i) => {
+  const useGroups = catGroups.length > 0;
+
+  const makeHeader = (name) => {
+    const tr = document.createElement("tr");
+    tr.className = "cat-row";
+    const isUncat = name === "";
+    const s = catInfo[name];
+    const frag = isUncat ? "" : (s
+      ? (s.has_fragment ? `<span class="cr-frag ok" title="en: ${esc(s.en)} / ja: ${esc(s.ja)}">조각✓</span>`
+                        : `<span class="cr-frag warn">조각없음</span>`)
+      : "");
+    const n = current.rows.filter((r) => (r.category || "").trim() === name).length;
+    tr.innerHTML = `<td colspan="${COLS.length + 1}">` +
+      `<span class="cr-name">${isUncat ? "미분류" : esc(name)}</span>` +
+      `<span class="cr-cnt">${n}행</span>${frag}` +
+      (isUncat ? "" : `<button class="cr-del" title="그룹 해제(행은 미분류로)">×</button>`) +
+      `</td>`;
+    // 그룹 헤더에 드롭 → 그 그룹으로 이동
+    tr.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; tr.classList.add("drop-target"); });
+    tr.addEventListener("dragleave", () => tr.classList.remove("drop-target"));
+    tr.addEventListener("drop", (e) => {
+      e.preventDefault(); tr.classList.remove("drop-target");
+      moveRowToGroup(dragFrom, name);
+    });
+    if (!isUncat) tr.querySelector(".cr-del").onclick = () => {
+      current.rows.forEach((r) => { if ((r.category || "").trim() === name) r.category = ""; });
+      catGroups = catGroups.filter((g) => g !== name);
+      normalizeGroups(); renderRows(); drawCatChips();
+    };
+    return tr;
+  };
+
+  const renderRow = (row, i) => {
     const tr = document.createElement("tr");
     if (i === selectedRow) tr.classList.add("sel");
     tr.innerHTML =
       `<td class="col-del">` +
-      `<span class="drag" draggable="true" title="드래그해서 행 이동">⠿</span>` +
+      `<span class="drag" draggable="true" title="드래그해서 행 이동/분류">⠿</span>` +
       `<button data-split="${i}" title="소/중/대 분할">＋</button>` +
       `<button data-del="${i}" title="삭제">×</button></td>` +
       COLS.map(([k]) =>
-        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${k === "category" ? ' list="cat-list" placeholder="분류"' : ""}${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
+        `<td><input value="${esc(row[k])}" data-i="${i}" data-k="${k}"${isLocked(k) ? ' readonly tabindex="-1" title="번역은 기본 수정 불가 — 상단 [번역 수정] 토글을 켜세요"' : ""}></td>`
       ).join("");
     tb.appendChild(tr);
     tr.addEventListener("click", (e) => {
       if (e.target.tagName === "BUTTON") return;
       selectedRow = i;
-      document.querySelectorAll("#rows tbody tr").forEach((t, j) => t.classList.toggle("sel", j === i));
+      tb.querySelectorAll("tr:not(.cat-row)").forEach((t) => t.classList.toggle("sel", +t.querySelector("input")?.dataset.i === i));
     });
     // ---- 드래그로 행 이동 ----
     const handle = tr.querySelector(".drag");
@@ -248,7 +365,20 @@ function renderRows() {
     tr.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; tr.classList.add("drop-target"); });
     tr.addEventListener("dragleave", () => tr.classList.remove("drop-target"));
     tr.addEventListener("drop", (e) => { e.preventDefault(); tr.classList.remove("drop-target"); reorderRow(dragFrom, i); });
-  });
+  };
+
+  if (useGroups) {
+    // rows는 normalizeGroups로 항상 [미분류…, 그룹1…, 그룹2…] 순으로 유지됨
+    let i = 0;
+    for (const g of ["", ...catGroups]) {
+      if (g !== "" || current.rows.some((r) => !(r.category || "").trim())) tb.appendChild(makeHeader(g));
+      while (i < current.rows.length && (current.rows[i].category || "").trim() === g) {
+        renderRow(current.rows[i], i); i++;
+      }
+    }
+  } else {
+    current.rows.forEach((row, i) => renderRow(row, i));
+  }
   tb.querySelectorAll("input").forEach((inp) => {
     inp.oninput = () => {
       if (isLocked(inp.dataset.k)) return;  // 번역 컬럼 수정 금지(토글 OFF 시)
@@ -296,6 +426,7 @@ function renderPrices() {
 // ---- 액션 ----
 $("#add-row").onclick = () => {
   current.rows.push({ category: "", menu: "", price: "", en: "", ja: "", zh_cn: "", zh_tw: "" });
+  normalizeGroups();  // 미분류 구간(맨 위 그룹)으로 정렬 유지
   renderRows();
 };
 $("#mark-done").onclick = async () => {

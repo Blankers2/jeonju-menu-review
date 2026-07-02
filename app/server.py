@@ -3,8 +3,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import json
+import re
+import sys
 
-from app.config import STATIC_DIR, STORAGE_DIR
+from app.config import BASE_DIR, DRAFTS_DIR, STATIC_DIR, STORAGE_DIR
 from app import draft_store
 from app.xlsx_exporter import write_workbook
 
@@ -23,6 +25,91 @@ def get_fixes(item_id: str):
         return {}
     fixes = json.loads(_CITY_FIXES.read_text(encoding="utf-8"))
     return fixes.get(str(d.get("place_id")), {})
+
+
+# ---- 카테고리 추천 (번역조각 + 시청 코멘트 기반) ----
+_LANGS = ("en", "ja", "zh_cn", "zh_tw")
+# 코멘트에서 카테고리로 볼 만한 토큰: "…류/…메뉴/…특선/…안주" + 고정어
+_CAT_TOKEN = re.compile(r"[가-힣]{1,8}(?:류|메뉴|특선|안주)")
+_CAT_FIXED = ("음료", "후식", "식사", "주류", "런치", "디너", "세트", "사이드", "점심특선")
+_CAT_BLACKLIST = {"분류", "종류", "메뉴"}  # "카테고리별 분류" 등 지시문 단어
+_FRAG_CACHE: dict = {}
+
+
+def _fragments() -> tuple[dict, dict]:
+    """전주시청 번역모음 조각을 1회 로드해 캐시.
+
+    반환: (by_item{item_id:[frag]}, global_dict{ko:{lang:최빈}}).
+    global_dict은 카테고리 등 공통 modifier의 크로스 재사용에만 씀(스펙 허용).
+    """
+    if "by_item" not in _FRAG_CACHE:
+        try:
+            sys.path.insert(0, str(BASE_DIR / "tools"))
+            from fragment_dict import load as load_frag
+            by_item, global_dict = load_frag()
+        except Exception:
+            by_item, global_dict = {}, {}
+        _FRAG_CACHE["by_item"] = by_item
+        _FRAG_CACHE["global"] = global_dict
+    return _FRAG_CACHE["by_item"], _FRAG_CACHE["global"]
+
+
+def _is_cat_like(ko: str) -> bool:
+    if not (2 <= len(ko) <= 10) or ko in _CAT_BLACKLIST:
+        return False
+    if any(ch.isdigit() for ch in ko):
+        return False
+    return ko.endswith(("류", "메뉴", "특선", "안주")) or ko in _CAT_FIXED
+
+
+@server.get("/api/categories/{item_id}")
+def get_categories(item_id: str):
+    """해당 place의 추천 카테고리 후보.
+
+    출처: ①시청 코멘트에 언급된 카테고리명 ②place 번역조각 중 카테고리성 어휘.
+    번역조각이 있는 후보만 4언어 번역을 동봉(has_fragment). 임의번역 없음.
+    """
+    d = draft_store.load_draft(item_id)
+    if d is None:
+        raise HTTPException(404, "draft not found")
+    pid = d.get("place_id")
+    by_item, global_dict = _fragments()
+    # place의 모든 item 조각 → ko별 번역(먼저 나온 것 우선)
+    frag: dict[str, dict] = {}
+    for p in sorted(DRAFTS_DIR.glob(f"{pid}_*.json")):
+        iid = p.stem.split("_", 1)[1]
+        for fr in by_item.get(iid, []):
+            ko = (fr.get("ko") or "").strip()
+            if ko and ko not in frag:
+                frag[ko] = {l: (fr.get(l) or "").strip() for l in _LANGS}
+    # ① 시청 코멘트에서 후보 추출
+    ordered: list[str] = []
+    if _CITY_FIXES.exists():
+        fixes = json.loads(_CITY_FIXES.read_text(encoding="utf-8")).get(str(pid), {})
+        text = "\n".join(fixes.get("comments", []))
+        for m in _CAT_TOKEN.finditer(text):
+            t = m.group(0)
+            if t not in _CAT_BLACKLIST and t not in ordered:
+                ordered.append(t)
+        for w in _CAT_FIXED:
+            if w in text and w not in ordered:
+                ordered.append(w)
+    # ② place 조각 중 카테고리성 어휘
+    for ko in frag:
+        if _is_cat_like(ko) and ko not in ordered:
+            ordered.append(ko)
+    out = []
+    for ko in ordered:
+        # place 자체 조각 우선, 없으면 전역 조각(카테고리 공통어휘 크로스 재사용)
+        tr = frag.get(ko)
+        src = "place"
+        if not (tr and any(tr.values())):
+            tr = global_dict.get(ko)
+            src = "global"
+        has = bool(tr and any(tr.values()))
+        out.append({"ko": ko, "has_fragment": has, "source": src if has else "",
+                    **(tr or {l: "" for l in _LANGS})})
+    return {"suggestions": out}
 
 
 @server.get("/api/settings")
