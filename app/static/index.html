@@ -68,6 +68,10 @@
         </label>
       </div>
       <div id="city-fix" class="city-fix" hidden></div>
+      <div class="mode-tabs">
+        <button id="mode-table" class="mode-tab active">표 편집</button>
+        <button id="mode-cat" class="mode-tab">분류 모드</button>
+      </div>
       <div id="cat-bar" class="cat-bar">
         <span class="cb-label">분류 그룹</span>
         <span id="cat-chips"></span>
@@ -83,6 +87,20 @@
         <option value="후식"></option><option value="주류"></option><option value="음료"></option>
         <option value="점심특선"></option>
       </datalist>
+      <div id="cat-mode" hidden>
+        <div class="cm-palette-wrap">
+          <div class="cm-hint">① 아래에서 카테고리를 선택 → ② 메뉴를 클릭하면 그 카테고리로 지정됩니다. (해제: [미분류] 선택 후 클릭)</div>
+          <div id="cm-palette"></div>
+          <div class="cm-new">
+            <input id="cm-new-cat" type="text" list="cat-list" placeholder="새 카테고리 직접입력" />
+            <button id="cm-add-cat" class="btn btn-ghost btn-sm">＋ 추가</button>
+          </div>
+        </div>
+        <div id="cm-rows"></div>
+        <div class="actions">
+          <button id="cm-save" class="btn btn-primary">저장</button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table id="rows">
           <thead><tr>

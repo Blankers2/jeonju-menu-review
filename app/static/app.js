@@ -187,6 +187,7 @@ async function openItem(itemId) {
   zoom = 1;
   catGroups = [];
   catInfo = {};
+  activeCat = null;
   $("#tr-edit").checked = false;  // 아이템 열 때마다 번역 수정 OFF로 리셋
   $("#title").value = current.title || "";
   $("#meta-info").textContent =
@@ -198,6 +199,7 @@ async function openItem(itemId) {
   renderPrices();
   renderCityFix();
   renderCatBar();   // 추천은 비동기 로드
+  if (catMode) renderCatMode();
   // 사이드바 active 갱신
   document.querySelectorAll(".img-item").forEach((e) => e.classList.remove("active"));
   loadSidebar();
@@ -251,6 +253,7 @@ async function renderCatBar() {
     for (const s of res.suggestions || []) catInfo[s.ko] = s;
     drawCatChips();
     if (catGroups.length) renderRows();  // 그룹 헤더의 조각 배지 갱신
+    if (catMode) renderCatMode();        // 분류 모드 팔레트에 추천 반영
   } catch (e) {
     if (token === _catReq) chips.innerHTML = `<span class="hint">추천 없음</span>`;
   }
@@ -290,6 +293,84 @@ $("#cat-add").onclick = () => { addCatGroup($("#cat-new").value); $("#cat-new").
 $("#cat-new").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); addCatGroup($("#cat-new").value); $("#cat-new").value = ""; }
 });
+
+// ---- 분류 모드 (카테고리 선택 → 메뉴 클릭으로 지정) ----
+let catMode = false;
+let activeCat = null;   // 선택된 카테고리 ("" = 미분류/해제, null = 미선택)
+const CM_COLORS = 8;
+
+function allCats() {
+  return [...new Set([...catGroups, ...Object.keys(catInfo)])];
+}
+function catColor(name) {
+  const i = allCats().indexOf(name);
+  return i < 0 ? 0 : i % CM_COLORS;
+}
+
+function setMode(cat) {
+  catMode = cat;
+  $("#mode-table").classList.toggle("active", !cat);
+  $("#mode-cat").classList.toggle("active", cat);
+  $("#cat-mode").hidden = !cat;
+  document.querySelector(".table-wrap").hidden = cat;
+  document.querySelector("#editor > .actions").hidden = cat;
+  document.querySelector(".prices").hidden = cat;
+  $("#cat-bar").hidden = cat;
+  if (!current) return;
+  if (cat) renderCatMode();
+  else { normalizeGroups(); renderRows(); drawCatChips(); }
+}
+$("#mode-table").onclick = () => setMode(false);
+$("#mode-cat").onclick = () => setMode(true);
+
+function renderCatMode() {
+  // 팔레트
+  const pal = $("#cm-palette"); pal.innerHTML = "";
+  const mk = (name, label) => {
+    const b = document.createElement("button");
+    b.className = "cm-chip" + (name === "" ? " cm-clear" : " cm-c" + catColor(name))
+      + (activeCat === name ? " on" : "");
+    b.textContent = label || name;
+    if (name !== "" && catInfo[name] && !catInfo[name].has_fragment) b.title = "⚠ 번역조각 없음";
+    b.onclick = () => { activeCat = name; renderCatMode(); };
+    pal.appendChild(b);
+  };
+  mk("", "미분류(해제)");
+  allCats().forEach((c) => mk(c));
+  // 행 리스트 — 클릭해도 순서를 안 바꿈(이미지 순서 유지). 저장 시에만 그룹 순으로 정렬됨.
+  const list = $("#cm-rows"); list.innerHTML = "";
+  current.rows.forEach((r, i) => {
+    const c = (r.category || "").trim();
+    const div = document.createElement("div");
+    div.className = "cm-row" + (c ? " cm-bg" + catColor(c) : "");
+    div.innerHTML =
+      `<span class="cm-badge${c ? " cm-c" + catColor(c) : " cm-none"}">${c ? esc(c) : "미분류"}</span>` +
+      `<span class="cm-menu">${esc(r.menu)}</span><span class="cm-price">${esc(r.price)}</span>`;
+    div.onclick = () => {
+      if (activeCat === null) { alert("먼저 위 팔레트에서 카테고리를 선택하세요."); return; }
+      r.category = activeCat;
+      if (activeCat && !catGroups.includes(activeCat)) catGroups.push(activeCat);
+      renderCatMode();
+    };
+    list.appendChild(div);
+  });
+}
+
+$("#cm-add-cat").onclick = () => {
+  const v = $("#cm-new-cat").value.trim();
+  if (!v) return;
+  if (!catGroups.includes(v)) catGroups.push(v);
+  activeCat = v; $("#cm-new-cat").value = "";
+  renderCatMode();
+};
+$("#cm-new-cat").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("#cm-add-cat").click(); }
+});
+$("#cm-save").onclick = async () => {
+  normalizeGroups();   // 저장 시 그룹 순 정렬(수출 순서 확정)
+  await save();
+  renderCatMode();
+};
 
 // ---- 조립 표 ----
 const COLS = [
