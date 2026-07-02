@@ -20,15 +20,21 @@ DRAFTS = ROOT / "storage" / "drafts"
 OUT = ROOT / "storage" / "translation_audit.json"
 LANGS = ("en", "ja", "zh_cn", "zh_tw")
 
-# 뒤에 로마자가 오지 않을 때만(=단위 종료). "330ml병"·"200g)"·"100g," 모두 매칭.
-_CAP = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|g|ml|l|ℓ|cc)(?![A-Za-z])", re.IGNORECASE)
+# 용량 단위: 로마자 + 중국어(克=g, 公斤/千克=kg, 毫升=ml, 升=l) + 일본어 그램 표기.
+# 뒤에 로마자가 오면 단위 아님. 중국어 단위는 정규화해 "200g"=="200克" 로 동일 취급.
+_UNIT = {"kg": "kg", "g": "g", "ml": "ml", "l": "l", "ℓ": "l", "cc": "ml",
+         "克": "g", "公斤": "kg", "千克": "kg", "毫升": "ml", "升": "l", "公升": "l"}
+_CAP = re.compile(r"(\d+(?:\.\d+)?)\s*(公斤|千克|公升|毫升|克|升|kg|g|ml|l|ℓ|cc)(?![A-Za-z])", re.IGNORECASE)
 _PAREN = re.compile(r"[\(（][^)）]+[\)）]")
-# 괄호 안이 용량뿐인지(용량 부가어는 원문-only 허용이라 부가어 누락에서 제외)
-_PAREN_CAP_ONLY = re.compile(r"^[\(（]\s*\d+(?:\.\d+)?\s*(kg|g|ml|l|ℓ|cc)\s*[\)）]$", re.IGNORECASE)
+_CAP_ONLY_UNIT = r"(?:公斤|千克|公升|毫升|克|升|kg|g|ml|l|ℓ|cc)"
+_PAREN_CAP_ONLY = re.compile(rf"^[\(（]\s*\d+(?:\.\d+)?\s*{_CAP_ONLY_UNIT}\s*[\)）]$", re.IGNORECASE)
 
 
 def caps(s):
-    return {f"{m.group(1)}{m.group(2).lower()}" for m in _CAP.finditer(s or "")}
+    out = set()
+    for m in _CAP.finditer(s or ""):
+        out.add(f"{m.group(1)}{_UNIT.get(m.group(2).lower(), m.group(2).lower())}")
+    return out
 
 
 def main():
