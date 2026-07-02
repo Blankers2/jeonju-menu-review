@@ -222,10 +222,23 @@ def update_image_draft(item_id: str, payload: dict):
     return d
 
 
+def _cat_lookup(pid, ko: str) -> dict | None:
+    """분류 번역: place 조각 우선 → 전역 조각(공통어휘). 조각 없으면 None(빈칸)."""
+    by_item, global_dict = _fragments()
+    for p in sorted(DRAFTS_DIR.glob(f"{pid}_*.json")):
+        iid = p.stem.split("_", 1)[1]
+        for fr in by_item.get(iid, []):
+            if (fr.get("ko") or "").strip() == ko:
+                tr = {l: (fr.get(l) or "").strip() for l in _LANGS}
+                if any(tr.values()):
+                    return tr
+    return global_dict.get(ko)
+
+
 @server.get("/api/export")
 def export_all():
     out = STORAGE_DIR / "menu_all.xlsx"
-    write_workbook(draft_store.list_drafts(), out)
+    write_workbook(draft_store.list_drafts(), out, cat_lookup=_cat_lookup)
     return FileResponse(
         out, filename="menu_all.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
