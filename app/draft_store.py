@@ -26,11 +26,21 @@ def get_translations_dir() -> str:
 
 
 def draft_path(item_id: str):
+    """item_id로 드래프트 파일 경로를 찾음.
+
+    파일명은 `<place_id>_<item_id>.json`(신형). item_id만으로 찾을 땐 glob으로 매칭
+    (item_id는 전역 고유). 구형 `<item_id>.json`도 폴백 지원.
+    """
+    hits = list(DRAFTS_DIR.glob(f"*_{item_id}.json"))
+    if hits:
+        return hits[0]
     return DRAFTS_DIR / f"{item_id}.json"
 
 
 def save_draft(draft: dict) -> None:
-    p = draft_path(str(draft["item_id"]))
+    pid = draft.get("place_id")
+    iid = str(draft["item_id"])
+    p = DRAFTS_DIR / (f"{pid}_{iid}.json" if pid is not None else f"{iid}.json")
     p.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
