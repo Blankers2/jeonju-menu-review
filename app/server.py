@@ -98,6 +98,10 @@ def get_categories(item_id: str):
     for ko in frag:
         if _is_cat_like(ko) and ko not in ordered:
             ordered.append(ko)
+    # ③ 기본 분류: 카테고리 없는 업소는 "메뉴"/"주류" 둘로 나눔 — 항상 추천에 포함
+    for w in ("메뉴", "주류"):
+        if w not in ordered:
+            ordered.append(w)
     out = []
     for ko in ordered:
         # place 자체 조각 우선, 없으면 전역 조각(카테고리 공통어휘 크로스 재사용)

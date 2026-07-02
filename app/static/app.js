@@ -303,7 +303,6 @@ function isLocked(k) { return TR_COLS.has(k) && !trEditable(); }
 
 function renderRows() {
   const tb = $("#rows tbody"); tb.innerHTML = "";
-  const useGroups = catGroups.length > 0;
 
   const makeHeader = (name) => {
     const tr = document.createElement("tr");
@@ -367,17 +366,14 @@ function renderRows() {
     tr.addEventListener("drop", (e) => { e.preventDefault(); tr.classList.remove("drop-target"); reorderRow(dragFrom, i); });
   };
 
-  if (useGroups) {
-    // rows는 normalizeGroups로 항상 [미분류…, 그룹1…, 그룹2…] 순으로 유지됨
-    let i = 0;
-    for (const g of ["", ...catGroups]) {
-      if (g !== "" || current.rows.some((r) => !(r.category || "").trim())) tb.appendChild(makeHeader(g));
-      while (i < current.rows.length && (current.rows[i].category || "").trim() === g) {
-        renderRow(current.rows[i], i); i++;
-      }
+  // rows는 normalizeGroups로 항상 [미분류…, 그룹1…, 그룹2…] 순으로 유지됨.
+  // 미분류 헤더는 항상 표시(처음부터 그룹핑 모드) — 여기서 그룹으로 드래그해 분류.
+  let i = 0;
+  for (const g of ["", ...catGroups]) {
+    tb.appendChild(makeHeader(g));
+    while (i < current.rows.length && (current.rows[i].category || "").trim() === g) {
+      renderRow(current.rows[i], i); i++;
     }
-  } else {
-    current.rows.forEach((row, i) => renderRow(row, i));
   }
   tb.querySelectorAll("input").forEach((inp) => {
     inp.oninput = () => {
